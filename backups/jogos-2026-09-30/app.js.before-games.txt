@@ -1,0 +1,137 @@
+const API_BASE='http://127.0.0.1:3333';
+const BLE_SERVICE_UUID='7b6e1000-8d4a-4a7f-9b31-0b6e2a1c1000';
+const BLE_DATA_UUID='7b6e1001-8d4a-4a7f-9b31-0b6e2a1c1000';
+let bandDevice=null;
+let bandCharacteristic=null;
+let activeChildId=null;
+let bandReconnectTimer=null;
+let bandDisconnectHandler=null;
+let bandReconnectAttempts=0;
+let diagnostics={api:'checking',bluetooth:'checking',device:'offline',gatt:'idle',notifications:'idle',lastPacket:'—',lastPersist:'—'};
+const $=s=>document.querySelector(s);
+const modal=$('#modalBackdrop'), content=$('#modalContent');
+function openModal(html){content.innerHTML=html;modal.classList.add('show')}
+function closeModal(){modal.classList.remove('show')}
+function notify(s){const t=$('#toast');t.textContent=s;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),3000)}
+async function api(path,options={}){
+  const res=await fetch(API_BASE+path,{credentials:'include',headers:{'Content-Type':'application/json',...(options.headers||{})},...options});
+  const data=await res.json().catch(()=>({}));
+  if(!res.ok) throw new Error(data.error||'Não foi possível concluir a operação');
+  return data;
+}
+function updateDiagnostics(){const box=$('#diagnosticsBox');if(!box)return;const rows=[['API',diagnostics.api],['Web Bluetooth',diagnostics.bluetooth],['NeuroBand',diagnostics.device],['GATT',diagnostics.gatt],['Notificações',diagnostics.notifications],['Último pacote',diagnostics.lastPacket],['Persistência',diagnostics.lastPersist],['Reconexões',String(bandReconnectAttempts)]];box.innerHTML=rows.map(([k,v])=>'<div class="diag-row"><span>'+k+'</span><strong>'+escapeHtml(v)+'</strong></div>').join('')}
+async function checkApi(){
+  diagnostics.api='testando…';updateDiagnostics();
+  try{const h=await api('/api/health');diagnostics.api=h.ok?'online':'indisponível';notify(h.ok?'API NeuroBloom online':'API indisponível');}
+  catch{diagnostics.api='offline';notify('Modo demonstração: API ainda não está online')}
+  updateDiagnostics();
+}
+function signupForm(){
+  openModal('<button class="modal-close" onclick="closeModal()">×</button><h2>Criar conta da família</h2><p>Use apenas dados fictícios nesta versão escolar.</p><form id="signupForm"><div class="form-grid"><div class="field full"><label>Nome do responsável</label><input name="guardianName" required></div><div class="field full"><label>E-mail de teste</label><input name="email" type="email" required></div><div class="field"><label>Senha (mín. 12)</label><input name="password" type="password" minlength="12" required></div><div class="field"><label>PIN infantil (6+)</label><input name="kidPin" inputmode="numeric" minlength="6" required></div><div class="field full"><label>Nome fictício da criança</label><input name="childName" required></div><div class="field"><label>Ano de nascimento fictício</label><input name="birthYear" type="number" min="1900" max="2026"></div></div><label class="field"><span><input name="consent" type="checkbox" required> Confirmo que é um teste escolar com dados fictícios</span></label><button class="btn primary" type="submit">Criar conta</button></form><p class="form-note">A conta real só deve ser usada depois de consentimento, segurança e revisão LGPD.</p>');
+  $('#signupForm').onsubmit=handleSignup;
+}
+async function handleSignup(e){
+  e.preventDefault();const f=new FormData(e.currentTarget);
+  const payload={guardianName:f.get('guardianName'),email:f.get('email'),password:f.get('password'),childName:f.get('childName'),kidPin:f.get('kidPin'),consent:f.get('consent')==='on'};
+  if(f.get('birthYear'))payload.birthYear=Number(f.get('birthYear'));
+  try{const r=await api('/api/auth/signup',{method:'POST',body:JSON.stringify(payload)});notify('Conta de teste criada');showPortal(r.guardian,r.child)}
+  catch(err){notify(err.message)}
+}
+function signinForm(){
+  openModal('<button class="modal-close" onclick="closeModal()">×</button><h2>Entrar</h2><p>Login do responsável para o ambiente de teste.</p><form id="signinForm"><div class="field"><label>E-mail</label><input name="email" type="email" required></div><div class="field"><label>Senha</label><input name="password" type="password" required></div><button class="btn primary" type="submit">Entrar</button></form><p class="form-note">Se a API estiver offline, use a experiência demonstrativa sem dados reais.</p>');
+  $('#signinForm').onsubmit=handleSignin;
+}
+async function handleSignin(e){
+  e.preventDefault();const f=new FormData(e.currentTarget);
+  try{const r=await api('/api/auth/login',{method:'POST',body:JSON.stringify({email:f.get('email'),password:f.get('password')})});const family=await api('/api/family');notify('Login realizado');showPortal(r.guardian,family.children[0])}
+  catch(err){notify(err.message)}
+}
+function kidLoginForm(){
+  openModal('<button class="modal-close" onclick="closeModal()">×</button><h2>Mundo Kids</h2><p>O acesso infantil usa um perfil previamente criado pelo responsável.</p><form id="kidForm"><div class="field"><label>ID do perfil infantil</label><input name="id" required></div><div class="field"><label>PIN</label><input name="pin" inputmode="numeric" required></div><button class="btn primary">Entrar no mundo kids</button></form>');
+  $('#kidForm').onsubmit=async e=>{e.preventDefault();const f=new FormData(e.currentTarget);try{const r=await api('/api/children/'+encodeURIComponent(f.get('id'))+'/kid-login',{method:'POST',body:JSON.stringify({pin:f.get('pin')})});closeModal();notify(r.message);await showChildPortal(r.child)}catch(err){notify(err.message)}};
+}
+async function handleBandPacket(event){
+  const value=event.target.value;
+  if(!value||value.byteLength<3){diagnostics.lastPacket='pacote inválido';updateDiagnostics();return}
+  const bpm=value.getUint16(0,true), quality=value.getUint8(2);
+  if(bpm<25||bpm>250||quality>100){diagnostics.lastPacket='dados fora do formato';updateDiagnostics();return}
+  diagnostics.lastPacket=bpm+' BPM · '+quality+'% sinal';
+  diagnostics.device='conectada';
+  updateDiagnostics();
+  const measuredAt=new Date().toISOString();
+  const bpmEl=$('#liveBandBpm'),qEl=$('#liveBandQuality'),statusEl=$('#bandStatus');
+  if(bpmEl)bpmEl.textContent=bpm||'—';
+  if(qEl)qEl.textContent=quality+'%';
+  if(statusEl)statusEl.textContent='● NeuroBand conectada';
+  if(activeChildId){
+    try{await api('/api/children/'+encodeURIComponent(activeChildId)+'/vitals/ble',{method:'POST',body:JSON.stringify({bpm,signalQuality:quality,measuredAt})});diagnostics.lastPersist='salva na API';updateDiagnostics()}
+    catch(err){diagnostics.lastPersist='falhou: '+err.message;updateDiagnostics();console.debug('BLE leitura não persistida:',err.message)}
+  }
+}
+async function connectBand(manual=true){
+  if(!('bluetooth' in navigator)){diagnostics.bluetooth='não suportado';updateDiagnostics();return notify('Seu navegador não oferece Web Bluetooth. Use Chrome ou Edge em localhost/HTTPS.')}
+  diagnostics.bluetooth='suportado';updateDiagnostics();
+  try{
+    if(manual||!bandDevice){bandReconnectAttempts=0;bandDevice=await navigator.bluetooth.requestDevice({filters:[{namePrefix:'NeuroBand'}],optionalServices:[BLE_SERVICE_UUID]})}
+    diagnostics.device='selecionando…';diagnostics.gatt='aguardando';updateDiagnostics();
+    if(bandDisconnectHandler)bandDevice.removeEventListener('gattserverdisconnected',bandDisconnectHandler);
+    bandDisconnectHandler=()=>{bandCharacteristic=null;diagnostics.device='desconectada';diagnostics.gatt='desconectado';diagnostics.notifications='paradas';bandReconnectAttempts+=1;updateDiagnostics();const s=$('#bandStatus');if(s)s.textContent='○ NeuroBand desconectada';if(bandReconnectTimer)clearTimeout(bandReconnectTimer);if(bandDevice)bandReconnectTimer=setTimeout(()=>connectBand(false).catch(()=>{}),3000);notify('NeuroBand desconectada — tentando reconectar...')};
+    bandDevice.addEventListener('gattserverdisconnected',bandDisconnectHandler);
+    const server=await bandDevice.gatt.connect();diagnostics.device='conectada';diagnostics.gatt='conectado';updateDiagnostics();
+    const service=await server.getPrimaryService(BLE_SERVICE_UUID);diagnostics.gatt='serviço encontrado';updateDiagnostics();
+    bandCharacteristic=await service.getCharacteristic(BLE_DATA_UUID);diagnostics.gatt='característica encontrada';updateDiagnostics();
+    await bandCharacteristic.startNotifications();diagnostics.notifications='ativas';updateDiagnostics();
+    bandCharacteristic.addEventListener('characteristicvaluechanged',handleBandPacket);
+    const s=$('#bandStatus');if(s)s.textContent='● NeuroBand conectada';
+    notify('NeuroBand conectada com sucesso');
+  }catch(err){diagnostics.device=err.name==='NotFoundError'?'cancelada':'erro';diagnostics.gatt=err.name==='NotFoundError'?'—':'falhou';diagnostics.notifications='—';updateDiagnostics();notify(err.name==='NotFoundError'?'Conexão cancelada':('Falha no Bluetooth: '+err.message))}
+}
+async function disconnectBand(){
+  if(bandReconnectTimer){clearTimeout(bandReconnectTimer);bandReconnectTimer=null}
+  try{if(bandDevice?.gatt?.connected)bandDevice.gatt.disconnect()}finally{bandCharacteristic=null;diagnostics.device='offline';diagnostics.gatt='idle';diagnostics.notifications='idle';updateDiagnostics();const s=$('#bandStatus');if(s)s.textContent='○ NeuroBand desconectada'}
+}
+async function showPortal(guardian,child){
+  if(!child){notify('Nenhum perfil infantil encontrado');return}
+  activeChildId=child.id;
+  history.pushState({view:'guardian'},'', '/responsavel');
+  await renderGuardianPortal(guardian,child);
+}
+
+async function renderGuardianPortal(guardian,child){
+  let reading=null;try{reading=await api('/api/children/'+child.id+'/vitals/latest')}catch{}
+  document.body.classList.add('portal-mode');
+  let root=$('#portalRoot');if(!root){root=document.createElement('div');root.id='portalRoot';document.body.appendChild(root)}
+  root.innerHTML='<div class="portal-app"><aside class="portal-sidebar"><div class="portal-brand"><span>✿</span> Neuro<span>Bloom</span></div><div class="portal-user"><div class="portal-avatar">'+escapeHtml((guardian.name||'N').slice(0,1).toUpperCase())+'</div><div><strong>'+escapeHtml(guardian.name)+'</strong><small>Responsável</small></div></div><nav class="portal-tabs"><button class="active" data-tab="overview">⌂ <span>Visão geral</span></button><button data-tab="history">◷ <span>Histórico</span></button><button data-tab="band">◉ <span>NeuroBand</span></button><button data-tab="family">♧ <span>Família</span></button><button data-tab="settings">⚙ <span>Configurações</span></button></nav><button class="portal-exit" id="portalExit">← Voltar ao site</button></aside><main class="portal-main"><header class="portal-header"><div><span class="portal-kicker">NEUROBLOOM / RESPONSÁVEL</span><h1>Olá, '+escapeHtml(guardian.name.split(' ')[0])+' <span>✦</span></h1><p>Acompanhe a experiência de '+escapeHtml(child.name)+' em um só lugar.</p><div class="portal-child-id">ID da criança <code>'+escapeHtml(child.id)+'</code></div></div><div class="portal-header-actions"><span class="online-chip"><i></i> Sistema online</span><button class="theme-toggle" id="themeToggle" title="Alternar tema">◐ Tema</button><button class="icon-btn" id="portalLogout" title="Sair">↪</button></div></header><section class="portal-content"><div class="portal-tab-panel active" data-panel="overview"><div class="portal-grid"><article class="metric-card metric-main"><div class="metric-label">LEITURA MAIS RECENTE <span>DEMO</span></div><div class="metric-value"><strong id="liveBandBpm">'+(reading?.reading?.bpm??'—')+'</strong><small>BPM</small></div><div class="metric-footer"><span id="bandStatus">○ NeuroBand desconectada</span><button class="btn primary small" id="connectBand">Conectar</button></div></article><article class="metric-card"><div class="metric-label">QUALIDADE DO SINAL</div><div class="metric-value compact"><strong id="liveBandQuality">—</strong><small>%</small></div><p>Recebido pela conexão BLE quando disponível.</p></article><article class="metric-card"><div class="metric-label">PERFIL INFANTIL</div><div class="child-mini"><div class="child-orb">✿</div><div><strong>'+escapeHtml(child.name)+'</strong><span>Perfil acompanhado</span></div></div><p>Dados demonstrativos e fictícios nesta versão escolar.</p></article></div><div class="portal-section-head"><div><span class="portal-kicker">ATIVIDADE</span><h2>Visão rápida</h2></div><button class="btn small" id="refreshReading">Atualizar</button></div><div class="insight-grid"><article class="insight-card"><span class="insight-icon">⌁</span><div><strong>Status da NeuroBand</strong><p id="overviewBandState">Aguardando conexão com o dispositivo.</p></div></article><article class="insight-card"><span class="insight-icon mint">✦</span><div><strong>Última persistência</strong><p id="overviewPersist">Nenhuma leitura BLE nesta sessão.</p></div></article><article class="insight-card"><span class="insight-icon peach">♡</span><div><strong>Ambiente seguro</strong><p>Protótipo escolar, sem uso para decisões clínicas ou emergências.</p></div></article></div></div><div class="portal-tab-panel" data-panel="history"><div class="portal-section-head"><div><span class="portal-kicker">DADOS</span><h2>Histórico de leituras</h2></div><button class="btn small" id="historyBtn">Atualizar histórico</button></div><div id="historyBox" class="portal-history"><div class="empty-state">Carregue o histórico para visualizar as leituras.</div></div></div><div class="portal-tab-panel" data-panel="band"><div class="portal-section-head"><div><span class="portal-kicker">DISPOSITIVO</span><h2>NeuroBand</h2></div><span class="online-chip" id="bandPill"><i></i> Desconectada</span></div><div class="band-layout"><article class="band-visual"><div class="band-glow"></div><div class="band-ring">◉</div><strong>NeuroBand</strong><span>ESP32 · MAX30102 · BLE</span><div class="band-actions"><button class="btn primary" id="bandConnect2">Conectar pulseira</button><button class="btn small" id="bandDisconnect2">Desconectar</button></div></article><article class="diagnostic-card"><div class="diag-head"><strong>Diagnóstico técnico</strong><button class="btn small" id="diagRefresh">Testar API</button></div><div id="diagnosticsBox" class="diagnostics-box"></div><p class="form-note">Este painel serve para depuração da demonstração e não exibe segredos.</p></article></div></div><div class="portal-tab-panel" data-panel="family"><div class="portal-section-head"><div><span class="portal-kicker">FAMÍLIA</span><h2>Perfil acompanhado</h2></div></div><div class="family-card"><div class="family-avatar">✿</div><div><strong>'+escapeHtml(child.name)+'</strong><p>Perfil infantil vinculado a '+escapeHtml(guardian.name)+'.</p></div><span class="status-badge">ATIVO</span></div></div><div class="portal-tab-panel" data-panel="settings"><div class="portal-section-head"><div><span class="portal-kicker">PREFERÊNCIAS</span><h2>Configurações</h2></div></div><div class="settings-card"><div><strong>Experiência visual</strong><p>Use o botão de engrenagem do site para modo escuro, fonte maior e redução de animações.</p></div><div><strong>Privacidade</strong><p>Continue usando apenas dados fictícios enquanto o projeto estiver em demonstração.</p></div></div></div></section></main></div>';
+  diagnostics.bluetooth='bluetooth' in navigator?'suportado':'não suportado';diagnostics.device=bandDevice?.gatt?.connected?'conectada':'offline';diagnostics.gatt=bandCharacteristic?'característica pronta':'idle';updateDiagnostics();
+  const tabs=[...root.querySelectorAll('.portal-tabs button')],panels=[...root.querySelectorAll('.portal-tab-panel')];
+  tabs.forEach(tab=>tab.onclick=()=>{tabs.forEach(x=>x.classList.remove('active'));panels.forEach(x=>x.classList.remove('active'));tab.classList.add('active');const p=root.querySelector('[data-panel="'+tab.dataset.tab+'"]');if(p)p.classList.add('active')});
+  root.querySelector('#themeToggle').onclick=()=>{document.body.classList.toggle('theme-dark');localStorage.setItem('nb-theme',document.body.classList.contains('theme-dark')?'dark':'light')};if(localStorage.getItem('nb-theme')==='dark')document.body.classList.add('theme-dark');
+  root.querySelector('#connectBand').onclick=connectBand;root.querySelector('#bandConnect2').onclick=connectBand;root.querySelector('#bandDisconnect2').onclick=disconnectBand;root.querySelector('#diagRefresh').onclick=checkApi;
+  root.querySelector('#refreshReading').onclick=async()=>{try{const r=await api('/api/children/'+child.id+'/vitals/latest');const el=$('#liveBandBpm');if(el)el.textContent=r.reading?.bpm??'—';notify(r.reading?'Leitura atualizada':'Sem leituras reais')}catch(err){notify(err.message)}};
+  root.querySelector('#historyBtn').onclick=async()=>{try{const r=await api('/api/children/'+child.id+'/vitals?limit=20');const box=root.querySelector('#historyBox');box.innerHTML=r.readings.length?r.readings.map(x=>'<div class="portal-history-row"><span>'+new Date(x.measured_at).toLocaleString('pt-BR')+'</span><strong>'+x.bpm+' BPM</strong><small>'+x.signal_quality+'% sinal</small></div>').join(''):'<div class="empty-state">Nenhuma leitura registrada.</div>'}catch(err){notify(err.message)}};
+  root.querySelector('#portalExit').onclick=()=>{document.body.classList.remove('portal-mode');root.remove();history.pushState({},'', '/');window.scrollTo(0,0)};
+  root.querySelector('#portalLogout').onclick=async()=>{try{await api('/api/auth/logout',{method:'POST'})}finally{document.body.classList.remove('portal-mode');root.remove();history.pushState({},'', '/');notify('Sessão encerrada')}};
+}
+async function showChildPortal(child){
+  history.pushState({view:'child'},'', '/crianca');
+  document.body.classList.add('portal-mode');
+  let root=$('#portalRoot');if(!root){root=document.createElement('div');root.id='portalRoot';document.body.appendChild(root)}
+  root.innerHTML='<div class="kid-app"><header class="kid-header"><a class="brand" href="/">✿ Neuro<span>Bloom</span></a><div class="kid-chip">MUNDO KIDS · BETA</div><button class="icon-btn" id="kidLogout">↪</button></header><main class="kid-main"><section class="kid-hero"><div><span class="portal-kicker">SEU CANTINHO</span><h1>Oi, '+escapeHtml(child.name.split(' ')[0])+'! <span>✦</span></h1><p>Escolha uma aventura, explore no seu ritmo e comemore cada conquista.</p></div><div class="kid-planet"><div class="kid-star">✦</div><div class="kid-orbit">◌</div><div class="kid-flower">✿</div></div></section><section class="kid-games"><button class="kid-game active"><span>✦</span><strong>Bloom Jumper</strong><small>Movimento · leve</small></button><button class="kid-game"><span>◉</span><strong>Respira & Floresce</strong><small>Em breve</small></button><button class="kid-game"><span>♡</span><strong>Meu Jardim</strong><small>Em breve</small></button></section><section class="kid-play"><div class="game-window"><div class="game-bar"><span>● ● ●</span><span>Bloom Jumper</span><span>✦</span></div><canvas id="kidGame" width="900" height="430"></canvas><div class="game-caption"><span>✦ Cada passo é uma conquista</span><span>Use ← → e espaço para brincar</span></div></div></section></main></div>';
+  const c=$('#kidGame'),ctx=c.getContext('2d');let x=80,y=320,vy=0,running=true;
+  function kidDraw(){ctx.clearRect(0,0,c.width,c.height);ctx.fillStyle='#d9f5f0';ctx.fillRect(0,0,c.width,c.height);ctx.fillStyle='#b8e9d8';ctx.fillRect(0,370,c.width,60);ctx.fillStyle='#a28be8';ctx.fillRect(x,y,42,50);ctx.fillStyle='#fff0bd';for(let i=0;i<9;i++){ctx.beginPath();ctx.arc(120+i*95,320-(i%3)*65,11,0,7);ctx.fill()}ctx.fillStyle='#4f4c7a';ctx.font='800 26px Nunito';ctx.fillText('Bloom Jumper ✦',28,42);if(running){x+=1.1;vy+=.35;y+=vy;if(y>320){y=320;vy=0}if(x>850)x=20}requestAnimationFrame(kidDraw)}kidDraw();
+  document.onkeydown=e=>{if(e.key==='ArrowRight')x=Math.min(850,x+18);if(e.key==='ArrowLeft')x=Math.max(0,x-18);if(e.key===' '&&y>=320)vy=-11};
+  root.querySelector('#kidLogout').onclick=async()=>{try{await api('/api/children/logout',{method:'POST'})}finally{document.body.classList.remove('portal-mode');root.remove();history.pushState({},'', '/');notify('Até logo!')}};
+}
+
+function escapeHtml(v){return String(v??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
+document.querySelectorAll('[data-open]').forEach(b=>b.onclick=()=>({signup:signupForm,signin:signinForm,kidlogin:kidLoginForm}[b.dataset.open]||(()=>notify('Área em construção')) )());
+$('#modalClose').onclick=closeModal;modal.onclick=e=>{if(e.target===modal)closeModal()};
+$('#menuToggle').onclick=()=>$('.topbar nav').classList.toggle('open');
+const game=$('#miniGame'),ctx=game.getContext('2d');let px=60,py=210,vy=0,run=false;
+function draw(){ctx.clearRect(0,0,560,300);ctx.fillStyle='#b9e9ef';ctx.fillRect(0,0,560,300);ctx.fillStyle='#a7e5cf';ctx.fillRect(0,260,560,40);ctx.fillRect(190,200,110,14);ctx.fillRect(390,160,100,14);ctx.fillStyle='#8b70e8';ctx.fillRect(px,py,28,40);ctx.fillStyle='#ffd56a';for(let i=0;i<6;i++){ctx.beginPath();ctx.arc(150+i*65,235-(i%3)*55,8,0,7);ctx.fill()}ctx.fillStyle='#fff';ctx.font='bold 18px Nunito';ctx.fillText('Bloom Jumper ✦',15,28);if(run){px+=1.2;vy+=.25;py+=vy;if(py>220){py=220;vy=0}if(px>540)px=10}requestAnimationFrame(draw)}draw();
+$('#playPreview').onclick=()=>{run=!run;notify(run?'Prévia iniciada!':'Prévia pausada. Use as setas do teclado.')};
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'||e.key==='d')px=Math.min(530,px+10);if(e.key==='ArrowLeft'||e.key==='a')px=Math.max(0,px-10);if((e.key===' '||e.key==='ArrowUp')&&py>=220)vy=-8});
+(()=>{const body=document.body,saved=JSON.parse(localStorage.getItem('nb_prefs')||'{}');if(saved.dark)body.classList.add('dark');if(saved.motion)body.classList.add('reduce-motion');const fab=document.createElement('button');fab.className='settings-fab';fab.title='Configurações de aparência e acessibilidade';fab.setAttribute('aria-label','Abrir configurações');fab.textContent='⚙';document.body.appendChild(fab);const panel=document.createElement('aside');panel.className='settings-panel';panel.innerHTML='<h3>Configurações</h3><label class="setting-row">Modo escuro <input class="switch" id="prefDark" type="checkbox"></label><label class="setting-row">Reduzir animações <input class="switch" id="prefMotion" type="checkbox"></label><label class="setting-row">Fonte maior <input class="switch" id="prefFont" type="checkbox"></label><p style="font-size:11px;color:#9290aa;line-height:1.5">Preferências ficam somente neste navegador.</p>';document.body.appendChild(panel);fab.onclick=()=>panel.classList.toggle('open');const d=$('#prefDark'),m=$('#prefMotion'),f=$('#prefFont');d.checked=!!saved.dark;m.checked=!!saved.motion;f.checked=!!saved.font;function save(){const p={dark:d.checked,motion:m.checked,font:f.checked};localStorage.setItem('nb_prefs',JSON.stringify(p));body.classList.toggle('dark',p.dark);body.classList.toggle('reduce-motion',p.motion);body.style.fontSize=p.font?'18px':''}d.onchange=m.onchange=f.onchange=save;save()})();
+checkApi();
+window.addEventListener('popstate',async()=>{if(location.pathname==='/'){document.body.classList.remove('portal-mode');$('#portalRoot')?.remove();return}if(location.pathname==='/responsavel'){try{const family=await api('/api/family');await renderGuardianPortal(family.guardian,family.children[0])}catch{history.replaceState({},'', '/');notify('Faça login para abrir o painel do responsável')}}if(location.pathname==='/crianca'){try{const r=await api('/api/children/me');if(r.child)await showChildPortal(r.child);else throw new Error()}catch{history.replaceState({},'', '/');notify('Faça o acesso infantil para abrir este painel')}}});
+if(location.pathname==='/responsavel'){setTimeout(()=>window.dispatchEvent(new PopStateEvent('popstate')),0)}else if(location.pathname==='/crianca'){setTimeout(()=>window.dispatchEvent(new PopStateEvent('popstate')),0)}

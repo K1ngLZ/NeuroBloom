@@ -1,0 +1,10 @@
+node_modules/
+server/node_modules/
+server/.env
+.env
+*.log
+npm-debug.log*
+server/.neurobloom_app_secret
+.DS_Store
+Thumbs.db
+.vscode/
