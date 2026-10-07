@@ -45,4 +45,4 @@ app.post('/api/alerts/test-email',{preHandler:guardian},async(req,reply)=>{if(!m
 app.post('/api/billing/checkout', {preHandler:guardian},async(_,reply)=>reply.code(501).send({error:'Checkout PagBank ainda não conectado. Não envie cobrança: configurar credenciais e fluxo oficial do provedor é necessário.'}));
 app.post('/api/webhooks/pagbank',async(req,reply)=>{req.log.warn('Webhook PagBank recebido mas validação de assinatura ainda não implementada; ignorado.');return reply.code(501).send({error:'Webhook não habilitado até validação criptográfica e idempotência'})});
 app.setErrorHandler((err,req,reply)=>{req.log.error(err);reply.code(500).send({error:'Erro interno'})});
-const port=Number(process.env.PORT||3333);try{await app.listen({port,host:process.env.HOST||'127.0.0.1'})}catch(e){app.log.error(e);process.exit(1)}
+const port=Number(process.env.PORT||3333);try{await app.listen({port,host:process.env.HOST||'::'})}catch(e){app.log.error(e);process.exit(1)}

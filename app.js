@@ -1,4 +1,4 @@
-const API_BASE='http://127.0.0.1:3333';
+const API_BASE=['localhost','127.0.0.1'].includes(location.hostname)?'http://127.0.0.1:3333':'';
 const BLE_SERVICE_UUID='7b6e1000-8d4a-4a7f-9b31-0b6e2a1c1000';
 const BLE_DATA_UUID='7b6e1001-8d4a-4a7f-9b31-0b6e2a1c1000';
 let bandDevice=null;
