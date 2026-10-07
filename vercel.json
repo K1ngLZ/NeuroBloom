@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": null,
+  "installCommand": "",
+  "buildCommand": "node scripts/build-web.mjs",
+  "outputDirectory": "public",
+  "rewrites": [
+    {
+      "source": "/api/:path*",
+      "destination": "https://neurobloom-api-production.up.railway.app/api/:path*"
+    },
+    { "source": "/responsavel", "destination": "/index.html" },
+    { "source": "/responsavel/", "destination": "/index.html" },
+    { "source": "/crianca", "destination": "/index.html" },
+    { "source": "/crianca/", "destination": "/index.html" }
+  ]
+}

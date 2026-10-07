@@ -16,14 +16,14 @@ const __dirname = path.dirname(__filename);
 const schemaPath = path.resolve(__dirname, '..', 'schema.sql');
 const sql = await fs.readFile(schemaPath, 'utf8');
 
-const client = new Client({ connectionString: process.env.DATABASE_URL });
+const client = new Client({ connectionString: process.env.DATABASE_URL, connectionTimeoutMillis: 10000, query_timeout: 30000 });
 
 try {
   await client.connect();
   await client.query(sql);
   console.log('Schema NeuroBloom aplicado com sucesso.');
 } catch (error) {
-  console.error('Falha ao aplicar schema:', error.message);
+  console.error('Falha ao aplicar schema. Verifique a conexão/permissões do banco.', error.code || 'erro de conexão');
   process.exitCode = 1;
 } finally {
   await client.end().catch(() => {});

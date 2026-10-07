@@ -8,3 +8,5 @@ server/.neurobloom_app_secret
 .DS_Store
 Thumbs.db
 .vscode/
+public/
+.vercel/

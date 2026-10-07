@@ -4,22 +4,27 @@ Projeto demonstrativo para o Colégio Módulo da Lapa.
 
 ## Abrir
 
-Abra `index.html` em um navegador moderno. Para Bluetooth Web Bluetooth, sirva em localhost ou HTTPS (não funciona em qualquer contexto `file://`).
+Site público: [neuro-bloom-swart.vercel.app](https://neuro-bloom-swart.vercel.app). O cadastro e o login usam a API e o PostgreSQL hospedados na Railway; quem acessa não precisa instalar nem iniciar nada na própria máquina.
+
+Para desenvolvimento local, siga `GUIA-DE-TESTE.md`. O Bluetooth exige localhost ou HTTPS. Publicação e variáveis de ambiente estão em [DEPLOY.md](DEPLOY.md).
 
 ## O que existe nesta versão
 
-- Landing page responsiva com identidade visual provisória NeuroBloom.
+- Interface responsiva com tipografia Manrope/Space Grotesk, ilustração da NeuroBand, temas claro e escuro e painéis familiar e infantil refinados.
 - Seções sobre o projeto, equipe e Colégio Módulo da Lapa. Biografias são textos de apresentação editáveis; confirmem cada contribuição com os integrantes antes de apresentar como fato.
-- Ações de Sign up/Sign in e botões de painel em interface demonstrativa.
+- Cadastro e login do responsável, sessão em cookie HTTP-only e acesso infantil por ID/PIN, integrados ao PostgreSQL.
 - Prévia de jogo Canvas original, com controles básicos de plataforma.
 - Visualização de batimentos demonstrativos.
 - Primeira integração Web Bluetooth preparada para receber pacotes da NeuroBand em Chrome/Edge usando os UUIDs definidos no firmware de bancada.
+- Navegação por teclado, formulários com foco acessível, controles de toque na prévia e preferências locais de fonte e animação.
+
+O sistema visual da página está em `premium.css` e o dos portais em `portal-premium.css`, carregados após a folha de estilos original. As integrações e o conteúdo do projeto foram preservados.
 
 ## Antes de qualquer uso real
 
 Este protótipo não é dispositivo médico, não diagnostica nem detecta emergências. MAX30102 exige validação de hardware, filtragem de sinal, calibração e testes independentes. Não use leituras ou limiares deste site para decisões clínicas. Um sensor óptico no pulso pode produzir leituras erradas por movimento, ajuste, perfusão e outras condições. O aviso deve instruir o responsável a buscar orientação profissional e serviços de emergência quando necessário.
 
-Não inserir dados reais de crianças. Nesta versão local, PostgreSQL, autenticação, família e histórico de leituras já estão inicializados e testados com dados fictícios. A integração Web Bluetooth está preparada no frontend e o firmware compila, mas a conexão física com a pulseira ainda depende da montagem/USB/ESP32. SMTP e cobrança/PagBank ainda não estão concluídos. Não armazene credenciais ou dados sensíveis em localStorage ou código do navegador.
+Não inserir dados reais de crianças. PostgreSQL, autenticação, família e histórico de leituras são testados com dados fictícios. A integração Web Bluetooth está preparada no frontend e o firmware compila, mas a conexão física com a pulseira ainda depende da montagem/USB/ESP32. SMTP e cobrança/PagBank ainda não estão concluídos. Não armazene credenciais ou dados sensíveis em localStorage ou código do navegador.
 
 ## Arquitetura recomendada para evolução
 

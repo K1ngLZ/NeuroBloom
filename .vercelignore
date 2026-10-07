@@ -1,0 +1,9 @@
+server/
+backups/
+hardware/
+node_modules/
+.git/
+.env
+.env.*
+*.log
+public/
