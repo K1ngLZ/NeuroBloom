@@ -1,0 +1,139 @@
+/* A personal, accessible workspace for appearance preferences. */
+#settingsToggle {
+  width: 50px; height: 50px; right: 24px; bottom: 24px; border-radius: 16px;
+  color: var(--accent); border: 1px solid color-mix(in srgb, var(--accent) 35%, var(--border));
+  background: linear-gradient(145deg, color-mix(in srgb, var(--accent) 12%, var(--surface)), var(--surface));
+  box-shadow: 0 7px 24px #00000020, inset 0 1px 0 #ffffff14;
+  transition: transform .25s, box-shadow .25s, opacity .2s, border-color .2s;
+}
+#settingsToggle:hover { transform: translateY(-3px); box-shadow: 0 9px 30px #9871d033; border-color: var(--accent); }
+#settingsToggle > .settings-icon { width: 23px; height: 23px; transition: transform .45s ease; }
+#settingsToggle:hover > .settings-icon { transform: rotate(40deg); }
+.settings-fab-tooltip { position: absolute; right: 62px; padding: 10px 13px; white-space: nowrap; font-size: .68rem; font-weight: 600; color: var(--text); background: var(--surface); border: 1px solid var(--border); border-radius: 9px; box-shadow: 0 5px 15px #0002; opacity: 0; visibility: hidden; transform: translateX(5px); transition: opacity .2s, transform .2s, visibility .2s; pointer-events: none; }
+#settingsToggle:hover .settings-fab-tooltip, #settingsToggle:focus-visible .settings-fab-tooltip { opacity: 1; visibility: visible; transform: none; }
+body.settings-open { overflow: hidden; }
+body.settings-open #settingsToggle { opacity: 0; pointer-events: none; transform: scale(.8) rotate(25deg); }
+
+#settingsDrawer { position: fixed; inset: 0; z-index: 150; visibility: hidden; pointer-events: none; transition: visibility 0s .36s; }
+#settingsDrawer.open { visibility: visible; pointer-events: auto; transition-delay: 0s; }
+#settingsBackdrop { position: absolute; inset: 0; background: #08071165; backdrop-filter: blur(5px); opacity: 0; transition: opacity .32s ease; }
+#settingsDrawer.open #settingsBackdrop { opacity: 1; }
+#settingsPanel {
+  position: absolute; right: 0; top: 0; bottom: 0; width: min(396px, 100%);
+  height: 100vh; height: 100dvh; max-height: none; margin: 0; padding: 0;
+  display: flex; flex-direction: column; overflow: hidden; border-radius: 24px 0 0 24px;
+  background: var(--surface); color: var(--text); border: 0; border-left: 1px solid color-mix(in srgb, var(--accent) 24%, var(--border));
+  box-shadow: -24px 0 85px #00000030; transform: translateX(102%);
+  transition: transform .4s cubic-bezier(.22, 1, .36, 1); isolation: isolate;
+}
+#settingsDrawer.open #settingsPanel { transform: translateX(0); }
+#settingsPanel * { box-sizing: border-box; }
+#settingsPanel .settings-icon { display: block; width: 20px; height: 20px; flex-shrink: 0; }
+#settingsPanel .settings-bloom { width: 26px; height: 26px; fill: currentColor; flex-shrink: 0; }
+#settingsPanel button { font: inherit; cursor: pointer; }
+#settingsPanel :is(button, input):focus-visible { outline: 3px solid var(--accent); outline-offset: 4px; }
+
+/* A luminous header and a miniature preview of the current theme. */
+#settingsPanel .settings-drawer-header { flex-shrink: 0; display: grid; grid-template-columns: 42px 1fr 32px; gap: 0 12px; align-items: center; padding: max(27px, env(safe-area-inset-top)) 26px 23px; position: relative; border-bottom: 1px solid var(--border); background: radial-gradient(ellipse at 0 0, color-mix(in srgb, var(--accent) 14%, transparent), transparent 78%); }
+#settingsPanel .settings-heading-icon { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 14px; color: var(--accent); background: var(--accent-soft); border: 1px solid color-mix(in srgb, var(--accent) 18%, transparent); box-shadow: inset 0 1px 0 #ffffff14; }
+#settingsPanel .settings-kicker { font-size: .5rem; font-weight: 700; letter-spacing: 1.9px; color: var(--accent); }
+#settingsPanel h2 { font-family: "Space Grotesk", Manrope, sans-serif; font-size: 1.45rem; font-weight: 500; line-height: 1.3; letter-spacing: -.65px; margin: 4px 0 0; color: var(--text); }
+#settingsPanel .settings-close { align-self: start; margin-top: 1px; padding: 0; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 10px; background: color-mix(in srgb, var(--surface) 65%, transparent); border: 1px solid var(--border); color: var(--secondary); transition: background .2s, color .2s, transform .2s; }
+#settingsPanel .settings-close:hover { background: var(--accent-soft); color: var(--accent); transform: rotate(90deg); }
+#settingsPanel .settings-close svg { width: 15px; height: 15px; }
+#settingsDescription { grid-column: 1 / -1; color: var(--secondary); font-size: .73rem; margin: 17px 0 0; line-height: 1.7; }
+#settingsPanel .settings-drawer-content { flex: 1; min-height: 0; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; scrollbar-color: color-mix(in srgb, var(--accent) 25%, var(--border)) transparent; padding: 25px 26px 23px; }
+#settingsPanel .settings-preview { position: relative; border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--border)); border-radius: 15px; padding: 15px 18px 16px; background: radial-gradient(ellipse at 92% 25%, #ad8de72a, transparent 70%), linear-gradient(145deg, var(--bg), var(--surface-soft)); box-shadow: 0 7px 24px #00000007, inset 0 1px 0 #ffffff12; overflow: hidden; }
+#settingsPanel .settings-preview::before { content: ""; position: absolute; width: 125px; height: 125px; border: 1px solid color-mix(in srgb, var(--accent) 16%, transparent); border-radius: 50%; right: -34px; bottom: -13px; pointer-events: none; }
+#settingsPanel .settings-preview-top { display: flex; align-items: center; justify-content: space-between; position: relative; z-index: 1; }
+#settingsPanel .settings-preview-brand { display: flex; align-items: center; gap: 5px; font-size: .54rem; font-weight: 600; color: var(--text); }
+#settingsPanel .settings-preview-brand svg { width: 13px; height: 13px; color: var(--accent); }
+#settingsPanel .settings-preview-badge { padding: 4px 7px; font-size: .47rem; font-weight: 500; border: 1px solid var(--border); border-radius: 5px; color: var(--secondary); background: color-mix(in srgb, var(--surface) 70%, transparent); }
+#settingsPanel .settings-preview-copy { position: relative; font-family: "Space Grotesk", sans-serif; font-weight: 500; color: var(--text); font-size: 1.5rem; line-height: 1.13; letter-spacing: -.6px; margin: 17px 0 15px; }
+#settingsPanel .settings-preview-copy > span:first-of-type { color: var(--accent); }
+#settingsPanel .settings-preview-flower { position: absolute; right: 17px; top: 0; width: 50px; height: 50px; display: grid; place-items: center; background: color-mix(in srgb, var(--accent) 12%, transparent); border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent); border-radius: 50%; color: var(--accent); transform: rotate(-12deg); }
+#settingsPanel .settings-preview-flower svg { width: 29px; height: 29px; }
+#settingsPanel .settings-preview-cards { display: flex; gap: 6px; }
+#settingsPanel .settings-preview-cards i { display: block; flex: 1; height: 17px; border-radius: 4px; background: color-mix(in srgb, var(--accent) 13%, var(--surface)); border: 1px solid color-mix(in srgb, var(--accent) 17%, transparent); }
+#settingsPanel .settings-preview-cards i:nth-child(2) { background: color-mix(in srgb, var(--green) 10%, var(--surface)); border-color: color-mix(in srgb, var(--green) 17%, transparent); }
+#settingsPanel .settings-preview-cards i:nth-child(3) { background: color-mix(in srgb, #d6a88c 11%, var(--surface)); border-color: #d6a88c25; }
+#settingsPanel .settings-preview-caption { display: flex; align-items: center; justify-content: center; gap: 7px; margin-top: 11px; color: var(--subtle); font-size: .56rem; }
+#settingsPanel .settings-preview-caption i { width: 4px; height: 4px; background: var(--green); border-radius: 50%; }
+
+/* Native controls with custom tracks keep keyboard and label behavior. */
+#settingsPanel .settings-group { margin-top: 27px; }
+#settingsPanel .settings-group-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+#settingsPanel .settings-group-heading h3 { margin: 0; font-size: .73rem; font-weight: 700; color: var(--text); }
+#settingsPanel .settings-group-heading > span { font-family: "Space Grotesk", sans-serif; color: var(--subtle); font-size: .55rem; }
+#settingsPanel .settings-options { border: 1px solid var(--border); background: color-mix(in srgb, var(--bg) 35%, var(--surface)); border-radius: 13px; overflow: hidden; }
+#settingsPanel .setting-row { display: flex; align-items: center; gap: 12px; min-height: 78px; padding: 16px 14px; border-bottom: 1px solid var(--border); font-weight: 400; cursor: pointer; transition: background .2s; }
+#settingsPanel .setting-row:last-child { border-bottom: 0; }
+#settingsPanel .setting-row:hover { background: color-mix(in srgb, var(--accent) 5%, var(--surface)); }
+#settingsPanel .setting-icon { width: 35px; height: 35px; display: grid; place-items: center; border-radius: 10px; flex-shrink: 0; border: 1px solid transparent; }
+#settingsPanel .setting-icon-lilac { color: var(--accent); background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 16%, transparent); }
+#settingsPanel .setting-icon-mint { color: var(--green); background: color-mix(in srgb, var(--green) 10%, var(--surface)); border-color: color-mix(in srgb, var(--green) 13%, transparent); }
+#settingsPanel .setting-icon-peach { color: #997353; background: #d2a47c16; border-color: #d2a47c22; }
+body.dark #settingsPanel .setting-icon-peach { color: #d4b194; }
+#settingsPanel .setting-icon svg { width: 18px; height: 18px; }
+#settingsPanel .setting-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 5px; }
+#settingsPanel .setting-copy strong { font-size: .72rem; font-weight: 600; color: var(--text); line-height: 1.45; }
+#settingsPanel .setting-copy small { font-size: .58rem; font-weight: 400; color: var(--secondary); line-height: 1.65; }
+#settingsPanel .switch { appearance: none; -webkit-appearance: none; position: relative; flex-shrink: 0; width: 43px; height: 25px; padding: 0; margin: 0; border: 1px solid color-mix(in srgb, var(--secondary) 22%, var(--border)); border-radius: 20px; background: color-mix(in srgb, var(--secondary) 12%, var(--surface)); cursor: pointer; transition: background .23s, border-color .23s, box-shadow .23s; }
+#settingsPanel .switch::before { content: ""; position: absolute; width: 17px; height: 17px; left: 3px; top: 3px; background: color-mix(in srgb, var(--secondary) 65%, var(--surface)); border-radius: 50%; box-shadow: 0 1px 3px #00000020; transition: transform .23s cubic-bezier(.22, 1, .36, 1), background .23s; }
+#settingsPanel .switch:checked { background: linear-gradient(120deg, #a282d6, #8360bc); border-color: #9874ce; box-shadow: 0 0 0 3px #a080d212; }
+#settingsPanel .switch:checked::before { background: #fff; transform: translateX(18px); box-shadow: 0 1px 4px #35204930; }
+#settingsPanel .settings-reset { display: flex; align-items: center; justify-content: center; gap: 8px; width: 100%; color: var(--secondary); background: transparent; border: 1px dashed var(--border); border-radius: 9px; font-size: .66rem; min-height: 39px; margin-top: 22px; transition: color .2s, border-color .2s, background .2s; }
+#settingsPanel .settings-reset .settings-icon { width: 14px; height: 14px; }
+#settingsPanel .settings-reset:hover { color: var(--accent); border-color: var(--accent); background: var(--accent-soft); }
+
+/* The saved-state note stays available while the content scrolls. */
+#settingsPanel .settings-drawer-footer { display: flex; align-items: center; gap: 10px; flex-shrink: 0; padding: 20px 26px max(20px, env(safe-area-inset-bottom)); background: color-mix(in srgb, var(--bg) 30%, var(--surface)); border-top: 1px solid var(--border); }
+#settingsPanel .settings-privacy-icon { color: var(--green); width: 31px; height: 31px; border-radius: 50%; display: grid; place-items: center; background: color-mix(in srgb, var(--green) 8%, transparent); flex-shrink: 0; }
+#settingsPanel .settings-privacy-icon svg { width: 16px; height: 16px; }
+#settingsPanel .settings-drawer-footer > div { flex: 1; min-width: 0; }
+#settingsPanel .settings-drawer-footer strong { display: block; font-size: .63rem; font-weight: 600; color: var(--text); }
+#settingsPanel .settings-drawer-footer p { color: var(--secondary); font-size: .54rem; line-height: 1.7; margin: 4px 0 0; }
+#settingsPanel .settings-saved-dot { width: 5px; height: 5px; border-radius: 50%; background: var(--green); box-shadow: 0 0 0 4px color-mix(in srgb, var(--green) 8%, transparent); }
+
+@media (max-height: 820px) {
+  #settingsPanel .settings-drawer-header { padding-top: max(20px, env(safe-area-inset-top)); padding-bottom: 18px; }
+  #settingsDescription { margin-top: 12px; }
+  #settingsPanel .settings-drawer-content { padding-block: 18px; }
+  #settingsPanel .settings-preview { padding-block: 12px; }
+  #settingsPanel .settings-preview-copy { font-size: 1.3rem; margin-block: 12px 11px; }
+  #settingsPanel .settings-preview-flower { width: 43px; height: 43px; }
+  #settingsPanel .settings-preview-cards i { height: 14px; }
+  #settingsPanel .settings-group { margin-top: 21px; }
+  #settingsPanel .settings-group-heading { margin-bottom: 8px; }
+  #settingsPanel .setting-row { min-height: 66px; padding-block: 12px; }
+  #settingsPanel .settings-reset { margin-top: 16px; }
+  #settingsPanel .settings-drawer-footer { padding-block: 16px max(16px, env(safe-area-inset-bottom)); }
+}
+
+@media (max-width: 480px) {
+  #settingsToggle { width: 45px; height: 45px; right: 16px; bottom: 16px; border-radius: 14px; }
+  #settingsPanel { border-radius: 0; width: 100%; border-left: 0; }
+  #settingsPanel .settings-drawer-header { padding-inline: 23px; }
+  #settingsPanel .settings-drawer-content { padding-inline: 23px; }
+  #settingsPanel .settings-drawer-footer { padding-inline: 23px; }
+  .settings-fab-tooltip { display: none; }
+}
+@media (max-width: 360px) {
+  #settingsPanel .settings-drawer-header { padding-inline: 18px; gap: 0 10px; }
+  #settingsPanel .settings-drawer-content, #settingsPanel .settings-drawer-footer { padding-inline: 18px; }
+  #settingsPanel .setting-row { gap: 9px; padding-inline: 12px; }
+  #settingsPanel .setting-icon { width: 30px; height: 30px; border-radius: 8px; }
+  #settingsPanel .setting-copy strong { font-size: .68rem; }
+  #settingsPanel .setting-copy small { font-size: .55rem; }
+  #settingsPanel .switch { width: 40px; }
+  #settingsPanel .switch:checked::before { transform: translateX(15px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  #settingsDrawer, #settingsDrawer *, #settingsToggle, #settingsToggle * { transition: none !important; animation: none !important; }
+}
+body.reduce-motion #settingsDrawer, body.reduce-motion #settingsDrawer *, body.reduce-motion #settingsToggle, body.reduce-motion #settingsToggle * { transition: none !important; animation: none !important; }
+@media (forced-colors: active) {
+  #settingsPanel .switch { appearance: auto; -webkit-appearance: auto; width: 24px; height: 24px; }
+  #settingsPanel .switch::before { display: none; }
+  #settingsPanel .settings-preview-copy > span:first-of-type { color: CanvasText; }
+}

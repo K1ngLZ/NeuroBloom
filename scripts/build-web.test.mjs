@@ -6,8 +6,8 @@ import path from 'node:path';
 import { buildWeb } from './build-web.mjs';
 
 const allowedFiles = [
-  'app.js', 'games/index.html', 'index.html', 'portal-premium.css',
-  'premium.css', 'styles.css',
+  'app.js', 'games/index.html', 'index.html', 'lively.css', 'portal-premium.css',
+  'premium.css', 'settings-drawer.css', 'styles.css',
 ];
 
 async function filesIn(directory, prefix = '') {

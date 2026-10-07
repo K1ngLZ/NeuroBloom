@@ -47,8 +47,10 @@ function toggleTheme(){visualPreferences.dark=!visualPreferences.dark;applyVisua
 applyVisualPreferences();
 motionPreference.addEventListener?.('change',()=>{if(!explicitMotionPreference){visualPreferences.motion=motionPreference.matches;applyVisualPreferences()}});
 let modalReturnFocus=null,modalInertElements=[];
+let closeVisualSettings=()=>{};
 function modalFocusable(){return [...modal.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])')].filter(element=>!element.hidden&&element.getClientRects().length>0)}
 function openModal(html){
+  closeVisualSettings();
   if(!modal.classList.contains('show'))modalReturnFocus=document.activeElement;
   content.innerHTML=html;
   content.querySelectorAll('.modal-close').forEach(button=>{button.hidden=true;button.style.display='none';button.tabIndex=-1;button.setAttribute('aria-hidden','true')});
@@ -116,6 +118,7 @@ function setPortalRoute(view,historyMode='push'){
   if(location.pathname!==path)history[historyMode==='replace'?'replaceState':'pushState']({view},'',path);
 }
 function leavePortal(historyMode='push'){
+  closeVisualSettings(false);
   portalRequest+=1;activeChildId=null;closeModal();disconnectBand();
   document.body.classList.remove('portal-mode');$('#portalRoot')?.remove();setPortalRoute(null,historyMode);window.scrollTo(0,0);
 }
@@ -202,6 +205,7 @@ async function disconnectBand(){
   try{if(bandDevice?.gatt?.connected)bandDevice.gatt.disconnect()}finally{bandCharacteristic=null;bandDevice=null;diagnostics.device='offline';diagnostics.gatt='idle';diagnostics.notifications='idle';updateDiagnostics();const s=$('#bandStatus');if(s)s.textContent='○ NeuroBand desconectada'}
 }
 async function showPortal(guardian,child,{historyMode='push'}={}){
+  closeVisualSettings(false);
   child=normalizeChild(child);
   if(!guardian?.id||!child)throw new Error('Não foi possível carregar o perfil da família.');
   guardian={...guardian,name:String(guardian.name||'Responsável')};
@@ -236,6 +240,7 @@ async function renderGuardianPortal(guardian,child,shouldRender=()=>true){
   root.querySelector('#portalLogout').onclick=event=>logoutPortal(event.currentTarget,'/api/auth/logout','Sessão encerrada');
 }
 async function showChildPortal(child,{historyMode='push'}={}){
+  closeVisualSettings(false);
   child=normalizeChild(child);
   if(!child)throw new Error('Não foi possível carregar o perfil infantil.');
   const request=++portalRequest;activeChildId=null;
@@ -362,15 +367,101 @@ if(game&&ctx){
 }
 
 (()=>{
-  const fab=document.createElement('button');fab.id='settingsToggle';fab.type='button';fab.className='settings-fab';fab.title='Configurações de aparência e acessibilidade';fab.setAttribute('aria-label','Abrir configurações de aparência e acessibilidade');fab.setAttribute('aria-controls','settingsPanel');fab.setAttribute('aria-expanded','false');fab.innerHTML='<span aria-hidden="true">⚙</span>';document.body.appendChild(fab);
-  const panel=document.createElement('aside');panel.id='settingsPanel';panel.className='settings-panel';panel.setAttribute('aria-labelledby','settingsTitle');panel.setAttribute('role','region');panel.innerHTML='<h3 id="settingsTitle">Sua experiência</h3><label class="setting-row" for="prefDark">Modo escuro <input class="switch" id="prefDark" type="checkbox"></label><label class="setting-row" for="prefMotion">Reduzir animações <input class="switch" id="prefMotion" type="checkbox"></label><label class="setting-row" for="prefFont">Fonte maior <input class="switch" id="prefFont" type="checkbox"></label><p class="settings-note">Preferências ficam somente neste navegador.</p>';document.body.appendChild(panel);
-  function setSettings(open,returnFocus=false){panel.classList.toggle('open',open);fab.setAttribute('aria-expanded',String(open));fab.setAttribute('aria-label',open?'Fechar configurações':'Abrir configurações de aparência e acessibilidade');if(open)$('#prefDark').focus({preventScroll:true});else if(returnFocus)fab.focus({preventScroll:true})}
-  fab.onclick=()=>setSettings(!panel.classList.contains('open'));
-  document.addEventListener('pointerdown',event=>{if(panel.classList.contains('open')&&!panel.contains(event.target)&&!fab.contains(event.target))setSettings(false)});
-  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&panel.classList.contains('open')){event.preventDefault();setSettings(false,true)}});
+  const icon=paths=>'<svg viewBox="0 0 24 24" class="settings-icon" fill="none" stroke="currentColor" stroke-width="1.65" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'+paths+'</svg>';
+  const gear=icon('<path d="m9 3-.6 2.2-2 .9-2-.6-2 3.4 1.6 1.6-.2 2.1-1.5 1.6 2 3.4 2.2-.6 1.8 1L9 21h4l.6-2.2 2-.9 2 .6 2-3.4-1.6-1.6.2-2.1 1.5-1.6-2-3.4-2.2.6-1.8-1L13 3H9Z"/><circle cx="11" cy="12" r="3"/>');
+  const moon=icon('<path d="M20.5 13A8.5 8.5 0 0 1 11 3.5 8.5 8.5 0 1 0 20.5 13Z"/><path d="M17 3v4m-2-2h4"/>');
+  const movement=icon('<path d="M3 7h9M5 12h13M3 17h9m6-10 4 5-4 5"/>');
+  const letters=icon('<path d="m3 19 6-14 6 14M5 15h8m4-3c4-2 5 0 5 2v5m0-4c-6-2-7 4-2 4l2-1"/>');
+  const shield=icon('<path d="m12 3 8 3v6c0 5-8 9-8 9s-8-4-8-9V6l8-3Zm-4 9 3 3 5-6"/>');
+  const bloom='<svg viewBox="0 0 32 32" class="settings-bloom" aria-hidden="true"><use href="#i-bloom"/></svg>';
+  const fab=document.createElement('button');
+  fab.id='settingsToggle';fab.type='button';fab.className='settings-fab';fab.title='Configurações de aparência e acessibilidade';
+  fab.setAttribute('aria-label','Abrir configurações de aparência e acessibilidade');fab.setAttribute('aria-controls','settingsPanel');fab.setAttribute('aria-expanded','false');
+  fab.innerHTML=gear+'<span class="settings-fab-tooltip" aria-hidden="true">Sua experiência</span>';
+  document.body.appendChild(fab);
+
+  const drawer=document.createElement('div');
+  drawer.id='settingsDrawer';drawer.className='settings-drawer';drawer.inert=true;drawer.setAttribute('aria-hidden','true');
+  drawer.innerHTML=`
+    <div class="settings-backdrop" id="settingsBackdrop" aria-hidden="true"></div>
+    <aside id="settingsPanel" class="settings-panel" role="dialog" aria-modal="true" aria-labelledby="settingsTitle" aria-describedby="settingsDescription" tabindex="-1">
+      <header class="settings-drawer-header">
+        <div class="settings-heading-icon">${bloom}</div>
+        <div class="settings-heading-copy"><span class="settings-kicker">NO SEU RITMO</span><h2 id="settingsTitle">Sua experiência</h2></div>
+        <button type="button" class="settings-close" id="settingsClose" aria-label="Fechar configurações">${icon('<path d="m6 6 12 12M18 6 6 18"/>')}</button>
+        <p id="settingsDescription">Pequenos ajustes. Um espaço mais seu.</p>
+      </header>
+      <div class="settings-drawer-content">
+        <div class="settings-preview" aria-hidden="true">
+          <div class="settings-preview-top"><span class="settings-preview-brand">${bloom} NeuroBloom</span><span class="settings-preview-badge" id="settingsThemeName">Escuro</span></div>
+          <div class="settings-preview-copy">Floresça<br><span>do seu jeito.</span><span class="settings-preview-flower">${bloom}</span></div>
+          <div class="settings-preview-cards"><i></i><i></i><i></i></div>
+        </div>
+        <div class="settings-preview-caption"><i></i> Seus ajustes aparecem na hora</div>
+        <section class="settings-group" aria-labelledby="appearanceTitle">
+          <div class="settings-group-heading"><h3 id="appearanceTitle">Aparência</h3><span>01</span></div>
+          <div class="settings-options">
+            <label class="setting-row" for="prefDark"><span class="setting-icon setting-icon-lilac">${moon}</span><span class="setting-copy"><strong>Modo escuro</strong><small id="prefDarkDescription">Uma paleta para cada momento.</small></span><input class="switch" id="prefDark" type="checkbox" role="switch" aria-label="Modo escuro" aria-describedby="prefDarkDescription"></label>
+          </div>
+        </section>
+        <section class="settings-group" aria-labelledby="accessibilityTitle">
+          <div class="settings-group-heading"><h3 id="accessibilityTitle">Conforto & acessibilidade</h3><span>02</span></div>
+          <div class="settings-options">
+            <label class="setting-row" for="prefMotion"><span class="setting-icon setting-icon-mint">${movement}</span><span class="setting-copy"><strong>Reduzir animações</strong><small id="prefMotionDescription">Uma experiência mais tranquila.</small></span><input class="switch" id="prefMotion" type="checkbox" role="switch" aria-label="Reduzir animações" aria-describedby="prefMotionDescription"></label>
+            <label class="setting-row" for="prefFont"><span class="setting-icon setting-icon-peach">${letters}</span><span class="setting-copy"><strong>Fonte maior</strong><small id="prefFontDescription">Mais espaço para cada palavra.</small></span><input class="switch" id="prefFont" type="checkbox" role="switch" aria-label="Fonte maior" aria-describedby="prefFontDescription"></label>
+          </div>
+        </section>
+        <button type="button" class="settings-reset" id="settingsReset">${icon('<path d="M3 11a9 9 0 1 1 2.5 7M3 4v7h7"/>')} Restaurar padrão</button>
+      </div>
+      <footer class="settings-drawer-footer"><span class="settings-privacy-icon">${shield}</span><div><strong>Seu jeito fica salvo.</strong><p>Preferências ficam somente neste navegador.</p></div><span class="settings-saved-dot" aria-hidden="true"></span></footer>
+    </aside>`;
+  document.body.appendChild(drawer);
+  const panel=$('#settingsPanel'),backdrop=$('#settingsBackdrop'),close=$('#settingsClose');
+  let returnFocus=null,inertElements=[],isOpen=false;
+  const focusable=()=>[...panel.querySelectorAll('button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex="-1"])')].filter(element=>element.getClientRects().length);
+  function setSettings(open,restoreFocus=true){
+    if(isOpen===open)return;
+    isOpen=open;
+    if(open){
+      returnFocus=document.activeElement;
+      panel.querySelector('.settings-drawer-content').scrollTop=0;
+      inertElements=[...document.body.children].filter(element=>element!==drawer&&element.id!=='toast'&&element.tagName!=='SCRIPT').map(element=>[element,element.inert]);
+      inertElements.forEach(([element])=>element.inert=true);
+    }else{
+      inertElements.forEach(([element,previous])=>element.inert=previous);inertElements=[];
+    }
+    drawer.inert=!open;drawer.setAttribute('aria-hidden',String(!open));drawer.classList.toggle('open',open);panel.classList.toggle('open',open);
+    document.body.classList.toggle('settings-open',open);
+    fab.setAttribute('aria-expanded',String(open));
+    if(open)requestAnimationFrame(()=>{if(isOpen)close.focus({preventScroll:true})});
+    else if(restoreFocus&&returnFocus?.isConnected)returnFocus.focus({preventScroll:true});
+    if(!open)returnFocus=null;
+  }
+  closeVisualSettings=restoreFocus=>setSettings(false,restoreFocus!==false);
+  fab.onclick=()=>setSettings(true);
+  close.onclick=()=>setSettings(false);
+  backdrop.onclick=()=>setSettings(false);
+  document.addEventListener('keydown',event=>{
+    if(!isOpen)return;
+    if(event.key==='Escape'){event.preventDefault();event.stopImmediatePropagation();setSettings(false);return}
+    if(event.key==='Tab'){
+      const elements=focusable(),first=elements[0],last=elements[elements.length-1],active=document.activeElement;
+      if(!first){event.preventDefault();panel.focus();return}
+      if(!panel.contains(active)||(event.shiftKey&&active===first)||(!event.shiftKey&&active===last)){
+        event.preventDefault();(event.shiftKey?last:first).focus();
+      }
+    }
+  },true);
   $('#prefDark').onchange=event=>{visualPreferences.dark=event.target.checked;applyVisualPreferences(true)};
   $('#prefMotion').onchange=event=>{explicitMotionPreference=true;visualPreferences.motion=event.target.checked;applyVisualPreferences(true)};
   $('#prefFont').onchange=event=>{visualPreferences.font=event.target.checked;applyVisualPreferences(true)};
+  $('#settingsReset').onclick=()=>{
+    explicitMotionPreference=false;visualPreferences={dark:true,motion:motionPreference.matches,font:false};applyVisualPreferences(true);
+    notify('Préférências restauradas. Tudo pronto para florescer.');
+  };
+  document.addEventListener('neurobloom:preferences',()=>{
+    $('#settingsThemeName').textContent=visualPreferences.dark?'Escuro':'Claro';
+  });
   applyVisualPreferences();
 })();
 checkApi({silent:true});

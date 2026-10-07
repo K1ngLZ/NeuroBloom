@@ -6,6 +6,7 @@ import { fileURLToPath } from 'node:url';
 // must never become static downloads on Vercel.
 export const publicAssets = [
   'index.html', 'app.js', 'styles.css', 'premium.css', 'portal-premium.css',
+  'lively.css', 'settings-drawer.css',
   'games/index.html'
 ];
 

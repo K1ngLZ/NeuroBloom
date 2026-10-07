@@ -1,0 +1,298 @@
+/* A little life, without changing the information or layout. */
+:root {
+  --life-lilac: #9d79d91a;
+  --life-mint: #72ba9d16;
+  --life-peach: #dfa88013;
+  --life-edge: #ffffffba;
+  --life-depth: #45366110;
+  --life-card-glow: #ab88e40c;
+  --life-title-from: #6e4cad;
+  --life-title-to: #498569;
+}
+body.dark, body.theme-dark {
+  --life-lilac: #9d79d91b;
+  --life-mint: #72ba9d11;
+  --life-peach: #dfa8800c;
+  --life-edge: #ffffff08;
+  --life-depth: #06060f40;
+  --life-card-glow: #ab88e40d;
+  --life-title-from: #c7adf3;
+  --life-title-to: #a7d2bc;
+}
+
+/* Ambient color belongs to the surfaces, so text stays crisp. */
+.hero { isolation: isolate; }
+.hero::before { display: none; }
+.hero-art {
+  background: none;
+}
+.art-grid { opacity: .7; }
+.hero-eyebrow {
+  padding: 7px 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, var(--border));
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--accent-soft) 35%, transparent);
+  box-shadow: inset 0 1px 0 var(--life-edge);
+}
+.eyebrow i { box-shadow: 0 0 0 4px color-mix(in srgb, var(--green) 9%, transparent); }
+.title-star { text-shadow: 0 0 24px #ae8ae742; }
+
+@supports ((background-clip: text) or (-webkit-background-clip: text)) {
+  .hero h1 em, .section-heading h2 em, .game-copy h2 em, .parent-content h2 em {
+    background: linear-gradient(115deg, var(--life-title-from) 0%, var(--accent) 72%, var(--life-title-to) 115%);
+    background-clip: text;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+}
+.section-number { background: var(--accent-soft); color: var(--accent); border-color: color-mix(in srgb, var(--accent) 22%, var(--border)); }
+.brand .brand-mark { filter: drop-shadow(0 3px 8px #b798e526); transition: transform .3s ease, filter .3s ease; }
+.topbar, body.dark .topbar { box-shadow: 0 5px 30px var(--life-depth); }
+.topbar::after {
+  content: "";
+  position: absolute;
+  bottom: -1px;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent 3%, #a88bdd4d 34%, #8bbaa638 70%, transparent 97%);
+  pointer-events: none;
+}
+
+/* Tactile controls: small feedback, no changes to button sizing. */
+.btn.primary {
+  background: linear-gradient(135deg, #ccb7f6, #baa0ec);
+  border-color: #c4abef;
+  box-shadow: inset 0 1px 0 #ffffff42, 0 3px 0 #70528c24, 0 9px 23px #9671cc1b;
+}
+.btn.primary:hover {
+  background: linear-gradient(135deg, #d5c2fc, #c3aaf1);
+  border-color: #d5bdf9;
+  box-shadow: inset 0 1px 0 #ffffff5c, 0 3px 0 #70528c20, 0 12px 28px #9671cc2c;
+}
+.btn.primary:active { transform: translateY(1px); box-shadow: inset 0 1px 0 #ffffff42, 0 1px 0 #70528c20, 0 5px 12px #9671cc1b; }
+.btn .icon, .text-link span { transition: transform .22s ease; }
+.btn:disabled, .preview-control:disabled { opacity: .58; cursor: wait; transform: none; box-shadow: none; }
+.btn.primary:disabled { transform: none; box-shadow: none; }
+.preview-control:disabled { cursor: default; }
+.preview-control { box-shadow: inset 0 1px 0 var(--life-edge); transition: background .2s, border-color .2s, color .2s, transform .2s; }
+.preview-control:active { transform: translateY(1px); background: var(--accent-soft); }
+.theme-button, .menu-toggle { box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--border) 60%, transparent); }
+
+/* A clean highlight and a little depth on each content surface. */
+.feature, body.dark .feature, .person, body.dark .person {
+  position: relative;
+  background: radial-gradient(ellipse at 100% 0%, var(--life-card-glow), transparent 60%), var(--surface);
+  border-color: color-mix(in srgb, var(--border) 88%, var(--accent));
+  box-shadow: inset 0 1px 0 var(--life-edge), 0 8px 24px var(--life-depth);
+}
+.feature::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 28px;
+  right: 28px;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, color-mix(in srgb, var(--accent) 42%, transparent), transparent);
+  pointer-events: none;
+}
+.feature-icon {
+  border: 1px solid color-mix(in srgb, currentColor 20%, transparent);
+  background: linear-gradient(145deg, color-mix(in srgb, var(--accent-soft) 82%, var(--surface)), var(--accent-soft));
+  box-shadow: inset 0 1px 0 var(--life-edge), 0 6px 16px #8e6acb13;
+}
+.feature-icon.peach { background: linear-gradient(145deg, #d4a87d20, #d4a87d10); }
+.feature-icon.mint { background: linear-gradient(145deg, #82b49c22, #82b49c10); }
+.feature-bottom { border-top-color: color-mix(in srgb, var(--border) 88%, var(--accent)); }
+.feature-index { color: color-mix(in srgb, var(--subtle) 72%, var(--accent)); }
+.person-avatar, body.dark .person-avatar, body.dark .person-avatar:is(.purple, .orange, .green, .blue, .pink, .yellow) {
+  background: linear-gradient(145deg, color-mix(in srgb, currentColor 17%, var(--surface)), color-mix(in srgb, currentColor 8%, var(--surface)));
+  border: 1px solid color-mix(in srgb, currentColor 22%, var(--border));
+  box-shadow: inset 0 1px 0 var(--life-edge), 0 5px 15px color-mix(in srgb, currentColor 8%, transparent);
+}
+.person-name > span { color: var(--accent); }
+.school-note, body.dark .school-note {
+  background: linear-gradient(115deg, var(--life-lilac), transparent 55%, var(--life-mint));
+  border-color: color-mix(in srgb, var(--border) 85%, var(--accent));
+  box-shadow: inset 0 1px 0 var(--life-edge);
+}
+.school-icon { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 20%, var(--border)); }
+.game-window, body.dark .game-window, .parent-preview, body.dark .parent-preview {
+  border-color: color-mix(in srgb, var(--border) 80%, var(--accent));
+  box-shadow: inset 0 1px 0 var(--life-edge), 0 22px 55px var(--life-depth);
+}
+.game-bar .window-dots i { box-shadow: 0 0 7px currentColor; }
+.game-pills > span { background: color-mix(in srgb, var(--surface) 72%, transparent); box-shadow: inset 0 1px 0 var(--life-edge); }
+.parent-band {
+  background: radial-gradient(ellipse at 20% 15%, var(--life-lilac), transparent 45%), radial-gradient(ellipse at 94% 70%, var(--life-mint), transparent 40%), var(--surface-soft);
+}
+.dash-chart-lines { background-color: color-mix(in srgb, var(--accent-soft) 12%, transparent); }
+.dash-chart-lines svg { filter: drop-shadow(0 3px 3px #ae92f020); }
+.safe-pill { box-shadow: inset 0 1px 0 #91bfa515; }
+.mini-badge { box-shadow: inset 0 1px 0 var(--life-edge); }
+
+/* The pillars remain quiet, with a colored rhythm through their details. */
+.metrics, body.dark .metrics {
+  background: transparent;
+  border-block-color: color-mix(in srgb, var(--border) 84%, var(--accent));
+}
+.metrics .icon { filter: drop-shadow(0 2px 5px #af8ad838); }
+.metrics .metric-index { color: var(--accent); }
+.metrics > div:nth-child(2) .icon { color: var(--green); filter: drop-shadow(0 2px 5px #88b69f30); }
+.trust-icon { background: var(--accent-soft); border-color: color-mix(in srgb, var(--accent) 19%, var(--border)); box-shadow: inset 0 1px 0 var(--life-edge); }
+.floating-info { box-shadow: inset 0 1px 0 var(--life-edge), 0 14px 38px var(--life-depth); border-color: color-mix(in srgb, var(--border) 80%, var(--accent)); }
+.float-icon, .bloom-mini { border: 1px solid color-mix(in srgb, currentColor 16%, transparent); box-shadow: inset 0 1px 0 var(--life-edge); }
+.orbit-one { border-color: color-mix(in srgb, var(--accent) 30%, var(--border)); }
+.orbit-two { border-color: color-mix(in srgb, var(--green) 25%, var(--border)); }
+.orbit-three { border-style: dashed; border-color: color-mix(in srgb, var(--accent) 28%, var(--border)); }
+.orbit-one { animation: life-orbit 22s ease-in-out 2; }
+.orbit-two { animation: life-orbit 28s ease-in-out 2 reverse; }
+.neuro-device { animation: device-float 9s ease-in-out 2; }
+.signal-info { animation: card-float 10s ease-in-out 2; }
+.bloom-info { animation: card-float 11s ease-in-out 2; }
+
+/* The guardian and child spaces use the same ambient color. */
+#portalRoot .portal-app {
+  background: radial-gradient(ellipse at 84% 0%, var(--life-lilac), transparent 42%), radial-gradient(ellipse at 90% 92%, var(--life-mint), transparent 50%), var(--portal-bg);
+}
+#portalRoot .portal-sidebar {
+  background: linear-gradient(170deg, var(--life-lilac), transparent 30%), var(--portal-surface);
+  border-right-color: color-mix(in srgb, var(--portal-line) 85%, var(--portal-accent));
+  box-shadow: 6px 0 26px var(--life-depth);
+}
+#portalRoot .portal-brand span:first-child { text-shadow: 0 4px 15px #9a7bdd30; }
+#portalRoot .portal-user { box-shadow: inset 0 1px 0 var(--life-edge); background: color-mix(in srgb, var(--portal-surface) 70%, transparent); }
+#portalRoot :is(.portal-avatar, .child-orb, .family-avatar) {
+  background: linear-gradient(140deg, color-mix(in srgb, var(--portal-soft) 80%, var(--portal-surface)), var(--portal-soft));
+  border: 1px solid color-mix(in srgb, var(--portal-accent) 20%, var(--portal-line));
+  box-shadow: inset 0 1px 0 var(--life-edge), 0 5px 12px #9b76d613;
+}
+#portalRoot .portal-tabs button {
+  position: relative;
+  transition: background .2s, color .2s, border-color .2s, box-shadow .2s;
+}
+#portalRoot .portal-tabs button.active {
+  background: linear-gradient(100deg, color-mix(in srgb, var(--portal-accent) 6%, var(--portal-soft)), var(--portal-soft));
+  border-color: color-mix(in srgb, var(--portal-accent) 22%, var(--portal-soft));
+  box-shadow: inset 0 1px 0 var(--life-edge), 0 3px 10px #9a76d50b;
+}
+#portalRoot .portal-tabs button.active::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 13px;
+  bottom: 13px;
+  width: 3px;
+  background: var(--portal-accent);
+  border-radius: 0 4px 4px 0;
+  pointer-events: none;
+}
+#portalRoot .portal-tabs button[data-tab="settings"] {
+  margin-top: 8px;
+  background: linear-gradient(120deg, var(--life-lilac), var(--life-mint));
+  border-color: color-mix(in srgb, var(--portal-accent) 20%, var(--portal-line));
+  color: var(--portal-accent-ink);
+  box-shadow: inset 0 1px 0 var(--life-edge);
+}
+#portalRoot .portal-tabs button[data-tab="settings"].active { background: var(--portal-soft); border-color: color-mix(in srgb, var(--portal-accent) 40%, var(--portal-line)); }
+#portalRoot .portal-exit { box-shadow: inset 0 1px 0 var(--life-edge); }
+#portalRoot :is(.metric-card, .insight-card, .diagnostic-card, .family-card, .settings-card) {
+  background: radial-gradient(ellipse at 95% 0%, var(--life-card-glow), transparent 58%), var(--portal-surface);
+  border-color: color-mix(in srgb, var(--portal-line) 90%, var(--portal-accent));
+  box-shadow: inset 0 1px 0 var(--life-edge), 0 8px 23px var(--life-depth);
+}
+#portalRoot .metric-main {
+  position: relative;
+  overflow: hidden;
+  background: radial-gradient(ellipse at 100% 100%, var(--life-mint), transparent 45%), linear-gradient(130deg, color-mix(in srgb, var(--portal-accent) 8%, var(--portal-soft)), var(--portal-soft));
+  border-color: color-mix(in srgb, var(--portal-accent) 20%, var(--portal-line));
+}
+#portalRoot .metric-main::after {
+  content: "";
+  position: absolute;
+  width: 116px;
+  height: 116px;
+  right: -38px;
+  top: -43px;
+  border: 1px solid color-mix(in srgb, var(--portal-accent) 13%, transparent);
+  border-radius: 50%;
+  box-shadow: 0 0 0 24px color-mix(in srgb, var(--portal-accent) 3%, transparent);
+  pointer-events: none;
+}
+#portalRoot .metric-main .metric-value { text-shadow: 0 4px 22px #8b70e80c; }
+#portalRoot .insight-icon { border: 1px solid color-mix(in srgb, currentColor 16%, transparent); box-shadow: inset 0 1px 0 var(--life-edge); }
+#portalRoot .online-chip, #portalRoot .status-badge { border: 1px solid color-mix(in srgb, var(--portal-green) 12%, transparent); box-shadow: inset 0 1px 0 var(--life-edge); }
+#portalRoot .portal-history-row { box-shadow: inset 0 1px 0 var(--life-edge), 0 3px 12px var(--life-depth); }
+#portalRoot .band-visual { background: radial-gradient(ellipse at 50% 30%, #8b70e818, transparent 60%), #242330; }
+#portalRoot .band-ring { box-shadow: inset 0 0 0 18px #ffffff03, 0 0 36px #b798eb14; border-color: #7f65994a; }
+#portalRoot .band-glow { animation-iteration-count: 2; }
+#portalRoot .btn.primary, #portalRoot .metric-main .btn.primary {
+  background: linear-gradient(135deg, #7d5dce, #694ab6);
+  border-color: #8c6ed3;
+  color: #fff;
+  box-shadow: inset 0 1px 0 #ffffff26, 0 3px 0 #50368c2c, 0 8px 22px #6c4bab22;
+}
+#portalRoot .btn.primary:hover, #portalRoot .metric-main .btn.primary:hover {
+  background: linear-gradient(135deg, #805fd1, #7051bd);
+  box-shadow: inset 0 1px 0 #ffffff32, 0 3px 0 #50368c2c, 0 10px 24px #6c4bab35;
+}
+#portalRoot .btn.primary:active, #portalRoot .metric-main .btn.primary:active { transform: translateY(1px); box-shadow: inset 0 1px 0 #ffffff26, 0 1px 0 #50368c2c; }
+#portalRoot .btn:disabled { transform: none; cursor: wait; opacity: .58; box-shadow: none; }
+#portalRoot .btn.primary:disabled, #portalRoot .metric-main .btn.primary:disabled { transform: none; box-shadow: none; }
+
+/* The game cards feel individual, without competing with the games. */
+#portalRoot .kid-app { background: radial-gradient(ellipse at 15% 0%, var(--life-lilac), transparent 38%), radial-gradient(ellipse at 98% 33%, var(--life-mint), transparent 42%), var(--portal-bg); }
+#portalRoot .kid-header { background: linear-gradient(100deg, var(--life-lilac), transparent 60%), var(--portal-surface); box-shadow: 0 3px 24px var(--life-depth); }
+#portalRoot .kid-chip { border: 1px solid color-mix(in srgb, var(--portal-accent) 16%, var(--portal-line)); box-shadow: inset 0 1px 0 var(--life-edge); }
+#portalRoot .kid-planet { background: radial-gradient(circle at 70% 30%, var(--life-mint), transparent 65%), linear-gradient(135deg, var(--portal-soft), color-mix(in srgb, var(--portal-soft) 50%, var(--portal-surface))); box-shadow: inset 0 1px 0 var(--life-edge), 0 16px 35px var(--life-depth); animation-iteration-count: 2; }
+#portalRoot .kid-game { --game-hue: #a987dc; background: radial-gradient(ellipse at 100% 0%, color-mix(in srgb, var(--game-hue) 10%, transparent), transparent 65%), var(--portal-surface); box-shadow: inset 0 1px 0 var(--life-edge), 0 6px 19px var(--life-depth); }
+#portalRoot .kid-game[data-game="wordsearch"], #portalRoot .kid-game[data-game="snake"], #portalRoot .kid-game[data-game="connect4"] { --game-hue: #79ad96; }
+#portalRoot .kid-game[data-game="colorir"], #portalRoot .kid-game[data-game="runner"], #portalRoot .kid-game[data-game="game2048"] { --game-hue: #c39b72; }
+#portalRoot .kid-game[data-game="bubble"], #portalRoot .kid-game[data-game="checkers"], #portalRoot .kid-game[data-game="sudoku"] { --game-hue: #829db9; }
+#portalRoot .kid-game.active {
+  background: radial-gradient(ellipse at 100% 0%, color-mix(in srgb, var(--game-hue) 15%, transparent), transparent 65%), var(--portal-soft);
+  box-shadow: inset 0 0 0 1px var(--portal-accent), inset 0 1px 0 var(--life-edge), 0 7px 19px var(--life-depth);
+}
+#portalRoot .kid-game span { background: linear-gradient(140deg, color-mix(in srgb, var(--game-hue) 14%, var(--portal-surface)), color-mix(in srgb, var(--game-hue) 6%, var(--portal-surface))); border: 1px solid color-mix(in srgb, var(--game-hue) 20%, var(--portal-line)); box-shadow: inset 0 1px 0 var(--life-edge); transition: transform .25s ease; }
+#portalRoot .kid-game.active span { background: linear-gradient(140deg, color-mix(in srgb, var(--game-hue) 20%, var(--portal-surface)), color-mix(in srgb, var(--game-hue) 8%, var(--portal-surface))); }
+#portalRoot .kid-play .game-window { border-color: color-mix(in srgb, var(--portal-line) 80%, var(--portal-accent)); box-shadow: inset 0 1px 0 var(--life-edge), 0 18px 42px var(--life-depth); }
+
+@keyframes life-orbit { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(16deg); } }
+
+@media (hover: hover) and (pointer: fine) {
+  .brand:hover .brand-mark { transform: rotate(-12deg); filter: drop-shadow(0 3px 10px #b798e54d); }
+  .btn:hover .icon, .text-link:hover span { transform: translateX(3px); }
+  .feature:hover, body.dark .feature:hover, .person:hover, body.dark .person:hover {
+    border-color: color-mix(in srgb, var(--accent) 42%, var(--border));
+    box-shadow: inset 0 1px 0 var(--life-edge), 0 15px 32px var(--life-depth);
+  }
+  .feature:hover .feature-icon { transform: rotate(-5deg) translateY(-2px); }
+  #portalRoot .portal-tabs button:hover { border-color: color-mix(in srgb, var(--portal-accent) 22%, var(--portal-line)); }
+  #portalRoot .portal-tabs button[data-tab="settings"]:hover { background: var(--portal-soft); border-color: color-mix(in srgb, var(--portal-accent) 40%, var(--portal-line)); }
+  #portalRoot .kid-game:hover { border-color: color-mix(in srgb, var(--game-hue) 60%, var(--portal-line)); box-shadow: inset 0 1px 0 var(--life-edge), 0 12px 26px var(--life-depth); }
+  #portalRoot .kid-game:hover span { transform: rotate(-5deg) translateY(-2px); }
+}
+
+@media (max-width: 760px) {
+  #portalRoot .portal-sidebar { box-shadow: 0 5px 23px var(--life-depth); }
+  #portalRoot .portal-tabs button[data-tab="settings"] { margin-top: 0; }
+  #portalRoot .portal-tabs button.active::before { left: 18px; right: 18px; top: auto; bottom: 0; height: 3px; width: auto; border-radius: 4px 4px 0 0; }
+}
+
+@media (max-width: 480px) {
+  .hero-eyebrow { padding: 6px 8px; }
+  .floating-info { box-shadow: inset 0 1px 0 var(--life-edge), 0 10px 24px var(--life-depth); }
+  #portalRoot .metric-main::after { right: -52px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .orbit, .neuro-device, .signal-info, .bloom-info, #portalRoot .kid-planet, #portalRoot .band-glow { animation: none !important; }
+  .brand .brand-mark, .btn .icon, .text-link span, #portalRoot .kid-game span { transition: none !important; }
+}
+body.reduce-motion :is(.orbit, .neuro-device, .signal-info, .bloom-info), body.reduce-motion #portalRoot :is(.kid-planet, .band-glow) { animation: none !important; }
+
+@media (forced-colors: active) {
+  .hero h1 em, .section-heading h2 em, .game-copy h2 em, .parent-content h2 em { background: none; -webkit-text-fill-color: currentColor; }
+  .hero::before, .topbar::after, #portalRoot .metric-main::after { display: none; }
+  #portalRoot .portal-tabs button.active::before { background: Highlight; }
+}
