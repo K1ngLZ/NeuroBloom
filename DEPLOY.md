@@ -35,7 +35,7 @@ Variáveis do serviço da API:
 
 Segredos reais são mantidos nas variáveis da Railway. O `.env` local não deve ser enviado, reutilizado em produção ou exibido.
 
-O `server/Dockerfile` usa Node.js 22 e instala dependências com `npm ci`. `npm run start:prod` aplica o schema idempotente e inicia a API. O healthcheck `/api/health` só retorna HTTP 200 quando o banco e as tabelas de autenticação estão acessíveis.
+O `server/Dockerfile` usa Node.js 22 e instala dependências com `npm ci`. `npm run start:prod` aplica o schema idempotente e inicia a API. O healthcheck `/api/health` só retorna HTTP 200 quando o banco e as tabelas de autenticação/família e conexões BLE estão acessíveis. Ao publicar alterações no protocolo da NeuroBand, publique primeiro o backend/migração e depois o frontend.
 
 Publicação manual do backend a partir da raiz do repositório, depois de autenticar a CLI:
 
@@ -75,3 +75,11 @@ node scripts/smoke-online.mjs https://neurobloom-api-production.up.railway.app -
 ```
 
 Também testar no navegador: login → atualizar `/responsavel` → sair → entrar novamente; ID/PIN → atualizar `/crianca` → abrir jogo → sair. Preferências visuais são locais, mas contas e sessões são validadas pelo servidor online.
+
+Validação BLE da API publicada:
+
+```powershell
+node scripts/smoke-ble-online.mjs https://neuro-bloom-swart.vercel.app
+```
+
+Cria duas famílias fictícias e envia dois pacotes sintéticos. Confere abertura idempotente, lotes, deduplicação, histórico, propriedade do perfil, cookie infantil recusado, timestamp, heartbeat e encerramento. Credenciais ficam em memória; os registros fictícios permanecem isolados no banco online. Esse teste não usa rádio Bluetooth nem comprova pareamento físico. Para isso, siga [o guia da NeuroBand](hardware/neuroband/README.md).

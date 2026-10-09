@@ -46,7 +46,7 @@ BLE é próximo ao aparelho que abriu o site, depende do rádio/permissões e do
 ## Verificação de software
 
 ```powershell
-node --test scripts/ble.test.mjs scripts/ble-cloud.test.mjs scripts/build-web.test.mjs
+node --test scripts/ble.test.mjs scripts/ble-cloud.test.mjs scripts/ble-portal.test.mjs scripts/build-web.test.mjs
 npm --prefix server test
 npm --prefix server run test:integration
 ```

@@ -57,7 +57,7 @@ O protocolo usa três bytes: BPM `uint16` little-endian e índice de contato óp
 
 As amostras têm identificadores únicos, são enviadas a cada cinco segundos em lotes de até 20 e ficam vinculadas exclusivamente ao perfil do responsável autenticado. Falhas transitórias mantêm até 120 amostras por no máximo cinco minutos em memória, sem gravar sinais fisiológicos em localStorage. Fechar a aba, sair da conta ou desconectar descarta amostras ainda não confirmadas. O navegador renova a sessão da conta enquanto o painel está aberto; cookies expirados exigem novo login.
 
-Validação de software: `node --test scripts/ble.test.mjs scripts/ble-cloud.test.mjs`, `npm --prefix server test` e `npm --prefix server run test:integration`. Os testes cobrem notificações, reconexão, requisições em andamento, respostas perdidas, duplicações, transações e isolamento entre famílias. Eles não substituem o pareamento e a medição no hardware real.
+Validação de software: `node --test scripts/ble.test.mjs scripts/ble-cloud.test.mjs scripts/ble-portal.test.mjs`, `npm --prefix server test` e `npm --prefix server run test:integration`. Os testes cobrem notificações, reconexão, requisições em andamento, respostas perdidas, duplicações, transações e isolamento entre famílias. Eles não substituem o pareamento e a medição no hardware real.
 
 ## Arquitetura recomendada para evolução
 

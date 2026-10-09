@@ -134,6 +134,19 @@ test('leaving the portal ignores late packets and clears reading watchdogs', asy
   await settle();
 });
 
+test('logout before the first asynchronous notification cannot attach that packet to the next child', async () => {
+  const h = harness(); h.click();
+  h.context.leavePortal(); h.context.enterChild('child-b'); h.click();
+  await settle();
+  assert.equal(h.clouds[0].options.childId, 'child-a');
+  assert.equal(h.clouds[0].readings.length, 0);
+  assert.equal(h.clouds[1].options.childId, 'child-b');
+  assert.equal(h.clouds[1].readings.length, 1);
+  assert.equal(h.state().activeChildId, 'child-b');
+  assert.equal(h.notices.filter(message => message.startsWith('NeuroBand conectada.')).length, 1);
+  await h.context.disconnectBand();
+});
+
 test('stale live readings stop displaying as current after fifteen seconds', async () => {
   const h = harness(); h.click(); await settle();
   h.advance(15001); h.context.expireBandReading(h.state().bandContext);
