@@ -10,7 +10,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&family=Space+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css?v=20261007">
-  <link rel="stylesheet" href="premium.css?v=20261009-1">
+  <link rel="stylesheet" href="premium.css?v=20261009-2">
   <link rel="stylesheet" href="portal-premium.css?v=20261008-1">
   <link rel="stylesheet" href="lively.css?v=20261007-5">
   <link rel="stylesheet" href="settings-drawer.css?v=20261007-3">
@@ -96,8 +96,22 @@
     <div class="section-footnote"><i></i> Tecnologia que aproxima. Experiências que acolhem.</div>
   </div></section>
   <section class="section wrap" id="jogos" aria-labelledby="gamesTitle">
-    <div class="game-intro"><div class="game-copy"><span class="eyebrow"><span class="section-number">02</span> UM MUNDO DE DESCOBERTAS</span><h2 id="gamesTitle">Seu cantinho<br>de <em>aventuras!</em></h2><p>Um espaço para a criança jogar, explorar novos mundos e comemorar cada conquista.</p><div class="game-pills"><span><i></i> No seu ritmo</span><span>5 aventuras para explorar</span></div><button class="btn primary" data-open="kidlogin">Entrar no mundo kids <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></button></div>
-      <div class="game-preview"><div class="game-window"><div class="game-bar"><div class="window-dots" aria-hidden="true"><i></i><i></i><i></i></div><span><svg class="icon" aria-hidden="true"><use href="#i-bloom"/></svg> Jardins de Aurora</span><span class="game-label">PRÉVIA</span></div><canvas id="miniGame" width="560" height="300" tabindex="0" aria-label="Prévia de jogo de plataforma. Clique em Jogar prévia. Use as setas para mover e Espaço para pular."></canvas><div class="game-caption"><div><svg class="icon" aria-hidden="true"><use href="#i-spark"/></svg><span>Cada passo é uma conquista<small>Setas para mover · Espaço para pular</small></span></div><button class="btn small" id="playPreview" aria-pressed="false">Jogar prévia <span aria-hidden="true">▷</span></button></div></div><span class="game-decor" aria-hidden="true">✳</span></div>
+    <div class="game-intro"><div class="game-copy"><span class="eyebrow"><span class="section-number">02</span> UM MUNDO DE DESCOBERTAS</span><h2 id="gamesTitle">Seu cantinho<br>de <em>aventuras!</em></h2><p>A Lumi tem um convite para você! Um espaço para jogar, explorar novos mundos e comemorar cada conquista.</p><div class="game-pills"><span><i></i> No seu ritmo</span><span>5 aventuras para explorar</span></div><button class="btn primary" data-open="kidlogin">Vamos jogar! <svg class="icon" aria-hidden="true"><use href="#i-arrow"/></svg></button></div>
+      <div class="game-preview mascot-preview">
+        <div class="game-window">
+          <div class="game-bar"><div class="window-dots" aria-hidden="true"><i></i><i></i><i></i></div><span id="mascotTitle"><svg class="icon" aria-hidden="true"><use href="#i-bloom"/></svg> Um oi da Lumi</span><span class="game-label">COM CARINHO</span></div>
+          <video id="mascotVideo" width="960" height="540" preload="metadata" playsinline controls poster="/assets/mascot/welcome-poster.jpg" aria-labelledby="mascotTitle" aria-describedby="mascotDescription">
+            <source src="/assets/mascot/welcome.mp4" type="video/mp4">
+            <track kind="captions" label="Português" srclang="pt-BR" src="/assets/mascot/welcome.vtt">
+            Seu navegador não conseguiu exibir o vídeo. Você pode ler o convite da Lumi na transcrição abaixo.
+          </video>
+          <div class="game-caption mascot-caption"><div><svg class="icon" aria-hidden="true"><use href="#i-spark"/></svg><span>Oi, amiguinho!<small>Sua próxima aventura começa aqui.</small></span></div><div class="mascot-actions"><button type="button" class="btn small" id="playMascot" aria-controls="mascotVideo">Ouvir a Lumi <span aria-hidden="true">▷</span></button><button type="button" class="btn small" id="pauseMascot" aria-controls="mascotVideo" hidden>Pausar <span aria-hidden="true">Ⅱ</span></button></div></div>
+          <p id="mascotDescription" class="mascot-description">A Lumi, uma flor lilás, convida você para brincar. Vídeo com voz em português e legendas. O som começa quando você dá play.</p>
+          <p id="mascotStatus" class="mascot-status" role="status" hidden></p>
+        </div>
+        <details class="mascot-transcript"><summary>Ler o convite da Lumi</summary><p>Oi, amiguinho! Eu sou a Lumi, sua amiga da NeuroBloom. Que tal brincar comigo? Vamos pular pelos jardins, correr entre estrelas e descobrir poderes incríveis! Aqui, você brinca no seu ritmo. Escolha uma aventura e venha florescer com a gente!</p></details>
+        <span class="game-decor" aria-hidden="true">✳</span>
+      </div>
     </div>
   </section>
   <section class="section parent-band" id="familia" aria-labelledby="familyTitle"><div class="wrap parent-content">
@@ -120,6 +134,6 @@
 </main>
 <div class="modal-backdrop" id="modalBackdrop"><section class="modal" role="dialog" aria-modal="true" tabindex="-1"><button class="modal-close" id="modalClose" aria-label="Fechar">×</button><div id="modalContent"></div></section></div>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script src="app.js?v=20261009-1"></script>
+<script src="app.js?v=20261009-2"></script>
 </body>
 </html>

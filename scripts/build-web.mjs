@@ -9,7 +9,8 @@ export const publicAssets = [
   'lively.css', 'settings-drawer.css',
   'games/index.html', 'games/runtime.js', 'games/arcade.css',
   'games/modules/platform.js', 'games/modules/speed.js', 'games/modules/ninja.js',
-  'games/modules/sword.js', 'games/modules/energy.js'
+  'games/modules/sword.js', 'games/modules/energy.js',
+  'assets/mascot/welcome.mp4', 'assets/mascot/welcome-poster.jpg', 'assets/mascot/welcome.vtt'
 ];
 
 const projectRoot = fileURLToPath(new URL('../', import.meta.url));

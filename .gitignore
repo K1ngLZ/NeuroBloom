@@ -10,3 +10,4 @@ Thumbs.db
 .vscode/
 public/
 .vercel/
+.cache/

@@ -311,79 +311,34 @@ document.addEventListener('keydown',event=>{
 });
 $('#siteThemeToggle')?.addEventListener('click',toggleTheme);
 
-const game=$('#miniGame'),ctx=game?.getContext('2d');
-let px=60,py=220,vy=0,run=false,previewVisible=false,previewFrame=null,previewLastTime=0;
-const previewPlatforms=[{x:190,y:200,w:110},{x:390,y:160,w:100}];
-function previewGrounded(){return py>=220||previewPlatforms.some(platform=>Math.abs(py+40-platform.y)<.1&&px+28>platform.x&&px<platform.x+platform.w)}
-function previewShape(x,y,w,h,r,color){ctx.beginPath();ctx.roundRect(x,y,w,h,r);ctx.fillStyle=color;ctx.fill()}
-function previewCloud(x,y,scale){
-  ctx.save();ctx.translate(x,y);ctx.scale(scale,scale);ctx.fillStyle='#ffffffbd';ctx.beginPath();ctx.ellipse(0,8,35,10,0,0,Math.PI*2);ctx.ellipse(-14,0,14,15,0,0,Math.PI*2);ctx.ellipse(4,-6,18,20,0,0,Math.PI*2);ctx.ellipse(24,4,14,12,0,0,Math.PI*2);ctx.fill();ctx.restore();
-}
-function previewFlower(x,y,color,size=1){
-  ctx.save();ctx.translate(x,y);ctx.scale(size,size);ctx.strokeStyle='#74a898';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,8);ctx.lineTo(0,-3);ctx.stroke();ctx.fillStyle=color;
-  for(let petal=0;petal<5;petal++){const angle=petal*Math.PI*2/5;ctx.beginPath();ctx.arc(Math.cos(angle)*4,-5+Math.sin(angle)*4,3.2,0,Math.PI*2);ctx.fill()}
-  ctx.fillStyle='#fff5bd';ctx.beginPath();ctx.arc(0,-5,2.3,0,Math.PI*2);ctx.fill();ctx.restore();
-}
-function drawPreview(time=0){
-  if(!ctx)return;
-  const sky=ctx.createLinearGradient(0,0,0,300);sky.addColorStop(0,'#eaeaf8');sky.addColorStop(.62,'#eef8ef');sky.addColorStop(1,'#dbefe0');ctx.fillStyle=sky;ctx.fillRect(0,0,560,300);
-  const sunshine=ctx.createRadialGradient(450,67,10,450,67,85);sunshine.addColorStop(0,'#fff6d0');sunshine.addColorStop(1,'#fff6d000');ctx.fillStyle=sunshine;ctx.fillRect(355,0,190,170);
-  ctx.fillStyle='#f7dba7';ctx.beginPath();ctx.arc(450,67,24,0,Math.PI*2);ctx.fill();
-  previewCloud(130,65,.8);previewCloud(330,47,.7);previewCloud(516,107,.56);
-  ctx.fillStyle='#d8e6d9';ctx.beginPath();ctx.moveTo(0,221);ctx.bezierCurveTo(70,103,118,134,190,198);ctx.bezierCurveTo(280,95,353,122,425,193);ctx.bezierCurveTo(500,139,530,168,560,165);ctx.lineTo(560,300);ctx.lineTo(0,300);ctx.fill();
-  ctx.fillStyle='#bcd8c9';ctx.beginPath();ctx.moveTo(0,244);ctx.bezierCurveTo(75,172,127,227,218,221);ctx.bezierCurveTo(342,181,355,219,429,220);ctx.bezierCurveTo(479,212,512,182,560,221);ctx.lineTo(560,300);ctx.lineTo(0,300);ctx.fill();
-  ctx.fillStyle='#9ec7b2';ctx.beginPath();ctx.moveTo(0,259);ctx.bezierCurveTo(93,242,190,266,289,252);ctx.bezierCurveTo(395,241,470,254,560,248);ctx.lineTo(560,300);ctx.lineTo(0,300);ctx.fill();
-  ctx.fillStyle='#edf0d6';ctx.beginPath();ctx.moveTo(0,272);ctx.bezierCurveTo(156,252,211,287,360,268);ctx.bezierCurveTo(434,258,512,268,560,271);ctx.lineTo(560,285);ctx.bezierCurveTo(400,278,321,300,213,287);ctx.bezierCurveTo(116,277,53,285,0,288);ctx.fill();
-  previewPlatforms.forEach(platform=>{previewShape(platform.x,platform.y+3,platform.w,14,7,'#91b6a4');previewShape(platform.x-3,platform.y,platform.w+6,8,4,'#e9efcc');previewFlower(platform.x+16,platform.y-5,'#e5a2b5',.7)});
-  [[21,259,'#ceabd9',.85],[102,267,'#f3cad0',1],[336,262,'#efb9c6',.85],[512,259,'#d6b2df',1],[541,265,'#f4d795',.8]].forEach(flower=>previewFlower(...flower));
-  for(let i=0;i<6;i++){
-    const cx=150+i*65,cy=235-(i%3)*55+(run&&!visualPreferences.motion?Math.sin(time/600+i)*2:0);
-    ctx.fillStyle='#fff6d8';ctx.beginPath();ctx.arc(cx,cy,10,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#e2be77';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(cx,cy,7,0,Math.PI*2);ctx.stroke();ctx.fillStyle='#d6ac60';ctx.font='10px system-ui';ctx.textAlign='center';ctx.fillText('✦',cx,cy+3);
+const mascotVideo=$('#mascotVideo'),mascotPlay=$('#playMascot'),mascotPause=$('#pauseMascot'),mascotStatus=$('#mascotStatus');
+if(mascotVideo){
+  let mascotVisible=true;
+  const mascotBlocked=()=>document.hidden||!mascotVisible||document.body.classList.contains('portal-mode')||modal.classList.contains('show');
+  function syncMascotControls(){
+    const playing=!mascotVideo.paused&&!mascotVideo.ended;
+    if(mascotPlay){mascotPlay.hidden=playing;mascotPlay.textContent=mascotVideo.ended?'Rever o convite ▷':mascotVideo.currentTime>0?'Continuar convite ▷':'Ouvir a Lumi ▷'}
+    if(mascotPause)mascotPause.hidden=!playing;
   }
-  ctx.fillStyle='#547c6928';ctx.beginPath();ctx.ellipse(px+14,py+41,18,4,0,0,Math.PI*2);ctx.fill();
-  const character=ctx.createLinearGradient(px,py,px+28,py+38);character.addColorStop(0,'#b69adf');character.addColorStop(1,'#8a71bd');
-  previewShape(px,py+2,28,34,12,character);previewShape(px+3,py,6,10,3,'#ae91d7');previewShape(px+20,py,6,10,3,'#ae91d7');previewShape(px+3,py+31,8,9,4,'#8067b4');previewShape(px+17,py+31,8,9,4,'#8067b4');
-  ctx.fillStyle='#fff';ctx.beginPath();ctx.ellipse(px+9,py+16,4,5,0,0,Math.PI*2);ctx.ellipse(px+20,py+16,4,5,0,0,Math.PI*2);ctx.fill();ctx.fillStyle='#443359';ctx.beginPath();ctx.arc(px+10,py+17,1.8,0,Math.PI*2);ctx.arc(px+21,py+17,1.8,0,Math.PI*2);ctx.fill();ctx.strokeStyle='#57406e';ctx.lineWidth=1.4;ctx.beginPath();ctx.arc(px+15,py+23,3,0,Math.PI);ctx.stroke();
-  previewShape(18,17,113,28,14,'#ffffffa6');ctx.fillStyle='#66766d';ctx.textAlign='left';ctx.font='600 10px system-ui';ctx.fillText('✦ BLOOM QUEST',31,35);
-}
-function previewCanAnimate(){return !!ctx&&run&&previewVisible&&!document.hidden&&!document.body.classList.contains('portal-mode')&&(!visualPreferences.motion||!previewGrounded()||vy!==0)}
-function cancelPreviewFrame(){if(previewFrame!==null)cancelAnimationFrame(previewFrame);previewFrame=null;previewLastTime=0}
-function schedulePreview(){if(previewCanAnimate()&&previewFrame===null)previewFrame=requestAnimationFrame(animatePreview)}
-function animatePreview(time){
-  previewFrame=null;if(!previewCanAnimate()){previewLastTime=0;return}
-  const delta=previewLastTime?Math.min((time-previewLastTime)/16.667,2):1;previewLastTime=time;
-  const oldFeet=py+40;if(!visualPreferences.motion)px+=1.2*delta;
-  if(!previewGrounded()||vy!==0){vy+=.25*delta;py+=vy*delta}
-  let landing=260;
-  if(vy>=0)previewPlatforms.forEach(platform=>{if(px+28>platform.x&&px<platform.x+platform.w&&oldFeet<=platform.y+.1&&py+40>=platform.y)landing=Math.min(landing,platform.y)});
-  if(py+40>=landing){py=landing-40;vy=0}
-  if(px>540){px=10;py=220;vy=0}
-  drawPreview(time);schedulePreview();
-}
-function previewAction(action){
-  if(!run||!ctx)return;
-  if(action==='left')px=Math.max(0,px-12);
-  if(action==='right')px=Math.min(530,px+12);
-  if(action==='jump'&&previewGrounded())vy=-8;
-  drawPreview();schedulePreview();
-}
-function setPreviewRunning(active){
-  run=active;const button=$('#playPreview');if(button){button.textContent=run?'Pausar prévia':'Jogar prévia';button.setAttribute('aria-pressed',String(run))}
-  document.querySelectorAll('[data-preview-control]').forEach(button=>button.disabled=!run);
-  if(run){game?.focus({preventScroll:true});schedulePreview()}else{cancelPreviewFrame();drawPreview()}
-}
-if(game&&ctx){
-  game.width=560;game.height=300;game.tabIndex=0;game.setAttribute('role','group');game.setAttribute('aria-label','Prévia interativa de Jardins de Aurora');game.setAttribute('aria-describedby','previewInstructions');
-  const instructions=document.createElement('p');instructions.id='previewInstructions';instructions.className='sr-only';instructions.textContent='Ative Jogar prévia. Com o jogo em foco, use as setas esquerda e direita para andar, espaço ou seta para cima para pular. Toque no cenário para pular. Escape pausa o jogo.';instructions.style.cssText='position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0';game.after(instructions);
-  if(!document.querySelector('[data-preview-control]')){const controls=document.createElement('div');controls.className='preview-controls';controls.setAttribute('aria-label','Controles da prévia');controls.innerHTML='<button class="preview-control" data-preview-control="left" aria-label="Mover para a esquerda">←</button><button class="preview-control" data-preview-control="jump" aria-label="Pular">Pular ↑</button><button class="preview-control" data-preview-control="right" aria-label="Mover para a direita">→</button>';instructions.after(controls)}
-  document.querySelectorAll('[data-preview-control]').forEach(button=>{button.type='button';button.onclick=()=>{game.focus({preventScroll:true});previewAction(button.dataset.previewControl)}});
-  game.addEventListener('keydown',event=>{if(document.activeElement!==game||!run)return;const action={ArrowLeft:'left',a:'left',A:'left',ArrowRight:'right',d:'right',D:'right',ArrowUp:'jump',' ':'jump',w:'jump',W:'jump'}[event.key];if(action){event.preventDefault();previewAction(action)}else if(event.key==='Escape'){event.preventDefault();setPreviewRunning(false);$('#playPreview')?.focus()}});
-  game.style.touchAction='manipulation';game.addEventListener('pointerdown',()=>{game.focus({preventScroll:true});previewAction('jump')});
-  $('#playPreview')?.addEventListener('click',()=>setPreviewRunning(!run));
-  if('IntersectionObserver' in window){const observer=new IntersectionObserver(entries=>{previewVisible=entries[0].isIntersecting;if(previewVisible){drawPreview();schedulePreview()}else cancelPreviewFrame()},{threshold:.05});observer.observe(game)}else previewVisible=true;
-  document.addEventListener('visibilitychange',()=>{if(document.hidden)cancelPreviewFrame();else{drawPreview();schedulePreview()}});
-  document.addEventListener('neurobloom:preferences',()=>{cancelPreviewFrame();drawPreview();schedulePreview()});
-  drawPreview();setPreviewRunning(false);
+  function pauseMascot(){mascotVideo.pause();syncMascotControls()}
+  function showMascotStatus(message){if(mascotStatus){mascotStatus.textContent=message;mascotStatus.hidden=!message}}
+  mascotPlay?.addEventListener('click',()=>{
+    if(mascotBlocked())return;
+    showMascotStatus('');
+    if(mascotVideo.ended)mascotVideo.currentTime=0;
+    mascotVideo.play().catch(()=>{showMascotStatus('Não foi possível iniciar o vídeo. Tente pelo botão de play do vídeo ou leia o convite abaixo.');syncMascotControls()});
+  });
+  mascotPause?.addEventListener('click',pauseMascot);
+  mascotVideo.addEventListener('play',()=>{if(mascotBlocked())pauseMascot();else{showMascotStatus('');syncMascotControls()}});
+  ['pause','ended','emptied'].forEach(event=>mascotVideo.addEventListener(event,syncMascotControls));
+  mascotVideo.addEventListener('error',()=>showMascotStatus('O vídeo não carregou. Você pode ler o convite da Lumi abaixo e escolher sua aventura.'));
+  if('IntersectionObserver' in window){
+    new IntersectionObserver(entries=>{mascotVisible=entries[0].isIntersecting;if(!mascotVisible)pauseMascot()},{threshold:.05}).observe(mascotVideo);
+  }
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)pauseMascot()});
+  new MutationObserver(()=>{if(mascotBlocked())pauseMascot()}).observe(document.body,{attributes:true,attributeFilter:['class']});
+  new MutationObserver(()=>{if(modal.classList.contains('show'))pauseMascot()}).observe(modal,{attributes:true,attributeFilter:['class']});
+  syncMascotControls();
 }
 
 (()=>{

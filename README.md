@@ -16,10 +16,17 @@ Para desenvolvimento local, siga `GUIA-DE-TESTE.md`. O Bluetooth exige localhost
 - Bloom Arcade com cinco aventuras originais feitas com GPT-6 Astra: Jardins de Aurora, Rastro Solar, Espada da Aurora, Ninja do Vento e Arena Cósmica. Cada campanha tem fases ou missões, controles próprios e conclusão.
 - Nickname privado por perfil infantil, histórico das 12 partidas mais recentes (tempo ativo, fase, pontos e estrelas) e progresso persistente no PostgreSQL. Cópia local permite continuar quando a conexão falha; a sincronização exige a sessão infantil.
 - Página inicial com estados de espera, sem valores de batimentos inventados. O painel familiar mostra as leituras recebidas pela API ou pela NeuroBand.
+- Apresentação animada da Lumi na página inicial, com voz em português, legendas e atalho para o portal infantil. O áudio começa quando a pessoa escolhe assistir; o vídeo pode ser visto novamente pelo controle de replay.
 - Primeira integração Web Bluetooth preparada para receber pacotes da NeuroBand em Chrome/Edge usando os UUIDs definidos no firmware de bancada.
 - Navegação por teclado, formulários com foco acessível, controles de toque na prévia e preferências locais de fonte e animação.
 
 O sistema visual da página está em `premium.css` e o dos portais em `portal-premium.css`, carregados após a folha de estilos original. As integrações e o conteúdo do projeto foram preservados.
+
+## Vídeo de boas-vindas da Lumi
+
+O vídeo da página inicial usa `assets/mascot/welcome.mp4`, a capa `assets/mascot/welcome-poster.jpg` e as legendas `assets/mascot/welcome.vtt`. A reprodução com voz exige uma ação da pessoa e oferece controle para rever a apresentação. O convite para entrar no espaço infantil continua disponível junto ao vídeo.
+
+Os arquivos são gerados localmente pelos scripts `scripts/generate-mascot-voice.ps1` e `scripts/render-mascot-video.py`. A voz usa `System.Speech` com Microsoft Maria no Windows; a animação usa Python com Pillow, NumPy e `imageio_ffmpeg`. O WAV intermediário fica em `.cache/mascot`, ignorado pelo Git. A publicação entrega o MP4 com áudio AAC e permite apenas os três arquivos finais listados acima; os scripts e os arquivos de trabalho ficam fora do build público.
 
 ## Antes de qualquer uso real
 
