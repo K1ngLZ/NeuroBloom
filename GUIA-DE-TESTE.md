@@ -6,7 +6,7 @@ Abra https://neuro-bloom-swart.vercel.app. O cadastro, login, jogos e dados fami
 
 Para a NeuroBand, entre no painel do responsável, abra **NeuroBand** e use **Conectar pulseira**. O caminho é **ESP32 → Bluetooth do aparelho → navegador → API HTTPS → PostgreSQL**. Mantenha a aba aberta durante a coleta. O servidor online não consegue usar o rádio Bluetooth de um aparelho remoto por conta própria.
 
-Use Chrome/Edge no Windows ou macOS, ou Chrome no Android, com Web Bluetooth disponível. Safari, Firefox e navegadores comuns no iPhone/iPad não oferecem esse fluxo. No navegador interno do Codex, o botão informa quando Bluetooth não está disponível; nesse caso abra o site no navegador compatível do aparelho.
+Use Chrome/Edge no Windows ou macOS, ou Chrome no Android, com Web Bluetooth disponível. Chrome e Safari no iPhone/iPad não oferecem esse acesso, mesmo com Bluetooth ligado. Nesses aparelhos, o [Bluefy](https://apps.apple.com/us/app/bluefy-web-ble-browser/id1492822055) oferece a API Web Bluetooth: abra o endereço HTTPS do NeuroBloom dentro dele, entre na conta do responsável, autorize Bluetooth e escolha a NeuroBand pela janela do site. Consulte [o guia oficial do Bluefy](https://bluefy.app/guide.html). O pareamento físico da NeuroBand nesse navegador ainda precisa ser confirmado; não foi testado nesta máquina. Navegadores sem a API exibem a orientação específica no painel; o site verifica a API antes de usar o tipo do aparelho para escolher a mensagem.
 
 ## Preparar o desenvolvimento local
 

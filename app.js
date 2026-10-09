@@ -5,7 +5,7 @@ let guardianRefreshTimer=null;
 let guardianRefreshController=null;
 let BandClientClass=null,CloudBridgeClass=null;
 const bandModulesReady=Promise.all([
-  import('/ble/neuroband.js?v=20261009-1'),import('/ble/cloud.js?v=20261009-1')
+  import('/ble/neuroband.js?v=20261009-1'),import('/ble/cloud.js?v=20261009-2')
 ]).then(([radio,cloud])=>{BandClientClass=radio.NeuroBandClient;CloudBridgeClass=cloud.BleCloudBridge;syncBandUi()}).catch(()=>{diagnostics.bluetooth='não foi possível carregar';updateDiagnostics()});
 let portalRequest=0;
 let diagnostics={api:'verificando',bluetooth:'verificando',device:'desconectada',gatt:'aguardando',notifications:'aguardando',lastPacket:'—',lastPersist:'—'};
@@ -171,7 +171,7 @@ function showBandTutorial(){
     <p>Faça a conexão no aparelho que ficará perto da NeuroBand.</p>
     <ol class="band-tutorial-steps">
       <li><div><strong>Ligue a NeuroBand</strong><span>A ESP32 precisa estar com o firmware NeuroBand gravado. Deixe a pulseira ligada e perto do computador ou celular.</span></div></li>
-      <li><div><strong>Prepare o aparelho</strong><span>Ative o Bluetooth e a internet. Use Chrome ou Edge no computador, ou Chrome no Android, e entre na sua conta de responsável.</span></div></li>
+      <li><div><strong>Prepare o aparelho</strong><span>Ative o Bluetooth e a internet. Use Chrome ou Edge no Windows/Mac, Chrome no Android ou Bluefy no iPhone/iPad, e entre na sua conta de responsável. Chrome e Safari no iPhone/iPad não oferecem Web Bluetooth.</span></div></li>
       <li><div><strong>Escolha sua pulseira</strong><span>Toque em <b>Conectar pulseira</b> aqui no site. Na janela que o navegador abrir, escolha <b>NeuroBand-XXXX</b> e confirme a conexão. Não é necessário parear antes nas configurações do aparelho.</span></div></li>
       <li><div><strong>Aguarde a primeira leitura</strong><span>Confira o estado <b>Conectada</b>. Mantenha contato estável com o sensor e aguarde alguns batimentos para aparecerem BPM e índice de contato.</span></div></li>
       <li><div><strong>Confira o salvamento</strong><span>O envio acontece a cada cerca de 5 segundos. Em <b>Persistência</b>, procure <b>Salva às…</b>. Depois abra <b>Histórico → Atualizar histórico</b> para conferir o registro.</span></div></li>
@@ -179,15 +179,40 @@ function showBandTutorial(){
     <p class="band-tutorial-note">Durante a coleta, mantenha esta aba aberta, a internet ligada e a pulseira próxima. Ao terminar, toque em <b>Desconectar</b>.</p>
     <details class="band-tutorial-help"><summary tabindex="0">Algo não funcionou?</summary><dl>
       <dt>A pulseira não aparece</dt><dd>Aproxime e reinicie a NeuroBand. Confira se o firmware foi gravado e desconecte a pulseira de outras abas ou aparelhos antes de tentar novamente.</dd>
-      <dt>Bluetooth indisponível</dt><dd>Abra o endereço HTTPS do site em um navegador compatível, confira as permissões de Bluetooth do sistema ou tente outro aparelho.</dd>
+      <dt>Bluetooth indisponível no iPhone/iPad</dt><dd>Mesmo com Bluetooth ligado, Chrome e Safari no iPhone/iPad não oferecem Web Bluetooth. Abra o site dentro do <a href="https://apps.apple.com/us/app/bluefy-web-ble-browser/id1492822055" target="_blank" rel="noopener noreferrer">Bluefy</a> e autorize o Bluetooth. Você também pode conectar por um computador Windows/Mac ou Android compatível. <button class="band-tutorial-link" type="button" id="bandIosGuide">Ver guia para iPhone/iPad</button></dd>
+      <dt>Bluetooth indisponível em outro aparelho</dt><dd>Abra o endereço HTTPS do site em um navegador compatível, confira as permissões de Bluetooth do sistema ou tente outro aparelho.</dd>
       <dt>Conectou, mas não mostra BPM</dt><dd>A conexão pode funcionar sem leitura. Confira o sensor, suas conexões e o contato estável; sem batimento válido, o painel fica aguardando.</dd>
       <dt>As leituras não foram salvas</dt><dd>Confira internet, API e Persistência no painel. Se a sessão da conta expirou, entre novamente como responsável.</dd>
     </dl></details>
     <button class="btn primary" type="button" id="bandTutorialDone">Entendi, voltar ao painel</button>
   </div>`);
   $('#bandTutorialDone').onclick=closeModal;
+  $('#bandIosGuide').onclick=()=>showBandCompatibilityHelp({reason:'ios',hint:'No iPhone/iPad, use um navegador com Web Bluetooth, como o Bluefy. Chrome e Safari nesse aparelho não oferecem esse acesso, mesmo com Bluetooth ligado.'});
+}
+function showBandCompatibilityHelp(compatibility){
+  const ios=compatibility.reason==='ios',insecure=compatibility.reason==='insecure';
+  openModal(`<div class="band-tutorial">
+    <span class="band-tutorial-kicker">ACESSO AO BLUETOOTH</span>
+    <h2>${ios?'Conectar no iPhone ou iPad':insecure?'Abra o site por HTTPS':'Use um navegador compatível'}</h2>
+    <p>${escapeHtml(compatibility.hint)}</p>
+    ${ios?`<ol class="band-tutorial-steps">
+      <li><div><strong>Abra o Bluefy</strong><span>O Bluefy é um navegador para iPhone/iPad com acesso Web Bluetooth. <a href="https://apps.apple.com/us/app/bluefy-web-ble-browser/id1492822055" target="_blank" rel="noopener noreferrer">Veja o Bluefy na App Store</a>.</span></div></li>
+      <li><div><strong>Entre no NeuroBloom dentro dele</strong><span>Digite este endereço no Bluefy e entre com sua conta de responsável:</span><code class="band-tutorial-url">https://neuro-bloom-swart.vercel.app</code></div></li>
+      <li><div><strong>Permita o Bluetooth e conecte</strong><span>Autorize o Bluetooth quando o Bluefy solicitar. Ligue e aproxime a pulseira; no painel, toque em <b>Conectar pulseira</b> e escolha <b>NeuroBand-XXXX</b>.</span></div></li>
+    </ol><p class="band-tutorial-note">Outra opção para o teste: Chrome no Android, ou Chrome/Edge em um computador Windows/Mac com Bluetooth. Você pode entrar com a mesma conta.</p>`:
+    `<p class="band-tutorial-note">Abra <b>https://neuro-bloom-swart.vercel.app</b> no Chrome do Android ou no Chrome/Edge de um computador Windows/Mac com Bluetooth. No iPhone/iPad, use o Bluefy. Confira também as permissões do sistema para o navegador.</p>`}
+    <button class="btn primary" type="button" id="bandCompatibilityDone">Entendi, voltar ao painel</button>
+  </div>`);
+  $('#bandCompatibilityDone').onclick=closeModal;
 }
 function bandIsCurrent(context){return bandContext===context&&activeChildId===context.childId&&!context.disposed}
+function bandCompatibility(){
+  if(!window.isSecureContext)return {available:false,reason:'insecure',hint:'A conexão Bluetooth exige HTTPS. Abra o NeuroBloom pelo endereço seguro do site.'};
+  if(typeof navigator.bluetooth?.requestDevice==='function')return {available:true,reason:null,hint:''};
+  const ios=/iPhone|iPad|iPod/i.test(navigator.userAgent||'')||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  if(ios)return {available:false,reason:'ios',hint:'Neste navegador do iPhone/iPad, o acesso Web Bluetooth está indisponível. Chrome e Safari no iPhone/iPad não oferecem esse recurso, mesmo com Bluetooth ligado. Use Bluefy ou conecte por Android ou computador Windows/Mac.'};
+  return {available:false,reason:'unsupported',hint:'Este navegador não oferece Web Bluetooth. Use Chrome no Android ou Chrome/Edge no Windows/Mac, com Bluetooth disponível e permissão do sistema.'};
+}
 function stopGuardianRefresh(){if(guardianRefreshTimer)clearInterval(guardianRefreshTimer);guardianRefreshTimer=null;guardianRefreshController?.abort();guardianRefreshController=null}
 function startGuardianRefresh(childId){
   stopGuardianRefresh();
@@ -204,9 +229,10 @@ function startGuardianRefresh(childId){
 }
 function syncBandUi(){
   const context=bandContext,state=context?.client.state||{phase:'disconnected',notifications:false};
+  const compatibility=bandCompatibility();
   const labels={selecting:'Escolha sua NeuroBand na lista do navegador.',connecting:'Conectando ao Bluetooth da pulseira…',discovering:'Verificando a NeuroBand…',subscribing:'Ativando o recebimento de leituras…',connected:'NeuroBand conectada. Aguardando uma leitura válida.',reconnecting:'Conexão interrompida. Aproxime a pulseira; tentando reconectar…',disconnected:'Ligue a pulseira e toque em Conectar.',error:state.error||'Não foi possível conectar. Aproxime a pulseira e tente novamente.'};
   const connected=state.phase==='connected';
-  diagnostics.bluetooth='bluetooth' in navigator?'suportado':'não suportado';
+  diagnostics.bluetooth=compatibility.available?'suportado':compatibility.reason==='ios'?'indisponível neste navegador no iPhone/iPad':compatibility.reason==='insecure'?'requer HTTPS':'não suportado';
   diagnostics.device=connected?(state.deviceName||'conectada'):state.phase==='reconnecting'?'reconectando':state.phase==='error'?'falhou':'desconectada';
   diagnostics.gatt=connected?'conectado':state.phase==='discovering'?'verificando serviço':state.phase==='connecting'?'conectando':'aguardando';
   diagnostics.notifications=state.notifications?'ativas':'aguardando';
@@ -215,7 +241,7 @@ function syncBandUi(){
   const overview=$('#overviewBandState');
   const recent=connected&&context?.lastReadingAt&&Date.now()-context.lastReadingAt<15000;
   if(overview)overview.textContent=recent?'Recebendo leituras da pulseira nesta aba.':labels[state.phase]||labels.disconnected;
-  const hint=$('#bandConnectionHint');if(hint)hint.textContent=!window.isSecureContext?'Abra o site por HTTPS para usar Bluetooth.':!('bluetooth' in navigator)?'Abra este site no Chrome ou Edge com Bluetooth. O navegador atual não permite conectar a pulseira.':labels[state.phase]||labels.disconnected;
+  const hint=$('#bandConnectionHint');if(hint)hint.textContent=compatibility.available?labels[state.phase]||labels.disconnected:compatibility.hint;
   const busy=['selecting','connecting','discovering','subscribing'].includes(state.phase);
   ['connectBand','bandConnect2'].forEach(id=>{const button=$('#'+id);if(button){button.disabled=busy||connected||!BandClientClass||!CloudBridgeClass;button.textContent=busy?'Conectando…':id==='bandConnect2'?'Conectar pulseira':'Conectar'}});
   const disconnect=$('#bandDisconnect2');if(disconnect)disconnect.disabled=!context;
@@ -242,7 +268,8 @@ function expireBandReading(context){
 }
 function connectBand(){
   if(!activeChildId)return notify('Entre no painel da família para conectar a NeuroBand.');
-  if(!window.isSecureContext||!('bluetooth' in navigator)){syncBandUi();return notify('Para conectar, abra o site em Chrome ou Edge com Bluetooth e HTTPS.');}
+  const compatibility=bandCompatibility();
+  if(!compatibility.available){syncBandUi();showBandCompatibilityHelp(compatibility);return;}
   if(!BandClientClass||!CloudBridgeClass)return notify('A conexão está carregando. Aguarde um instante e tente novamente.');
   // Cleanup starts synchronously; requestDevice below remains inside this click.
   void disconnectBand();

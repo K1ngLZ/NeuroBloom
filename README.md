@@ -51,7 +51,7 @@ Os testes de PostgreSQL, autenticação, família e histórico de leituras usam 
 
 ## Conexão da NeuroBand
 
-Entre no [painel familiar online](https://neuro-bloom-swart.vercel.app/responsavel), abra **NeuroBand** e toque em **Conectar pulseira** no Chrome ou Edge com Web Bluetooth disponível. Escolha `NeuroBand-XXXX` e mantenha esta aba aberta. A pulseira se comunica com o Bluetooth do aparelho próximo; o site encaminha as leituras à API pela internet. A Railway não tem acesso direto ao rádio Bluetooth.
+Entre no [painel familiar online](https://neuro-bloom-swart.vercel.app/responsavel), abra **NeuroBand** e toque em **Conectar pulseira** no Chrome/Edge em Windows/Mac, Chrome no Android ou Bluefy no iPhone/iPad, com Web Bluetooth disponível. Chrome e Safari no iPhone/iPad não oferecem esse acesso; habilitar Bluetooth não adiciona a API ao navegador. Escolha `NeuroBand-XXXX` e mantenha esta aba aberta. A pulseira se comunica com o Bluetooth do aparelho próximo; o site encaminha as leituras à API pela internet. A Railway não tem acesso direto ao rádio Bluetooth. A compatibilidade física da NeuroBand com Bluefy precisa ser conferida na placa real; o navegador declara suporte à API, mas não houve pareamento físico neste ambiente.
 
 O protocolo usa três bytes: BPM `uint16` little-endian e índice de contato óptico `uint8` (0–100). A montagem, os UUIDs e a compilação estão no [guia do firmware](hardware/neuroband/README.md). O anúncio inicia mesmo sem sensor; nesse caso haverá conexão, mas nenhuma leitura válida.
 

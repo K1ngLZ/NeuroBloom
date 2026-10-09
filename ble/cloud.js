@@ -4,9 +4,19 @@ const MAX_PENDING = 120;
 const BATCH_SIZE = 20;
 const RETRY_DELAYS = [1000, 2000, 4000, 8000, 16000, 30000];
 
+function createConnectionId() {
+  if (typeof globalThis.crypto?.randomUUID === 'function') return globalThis.crypto.randomUUID();
+  const bytes = new Uint8Array(16);
+  globalThis.crypto.getRandomValues(bytes);
+  bytes[6] = (bytes[6] & 15) | 64;
+  bytes[8] = (bytes[8] & 63) | 128;
+  const hex = [...bytes].map(byte => byte.toString(16).padStart(2, '0')).join('');
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`;
+}
+
 export class BleCloudBridge {
   constructor({ api, childId, onState = () => {}, onAuthExpired = () => {},
-    now = Date.now, makeConnectionId = () => globalThis.crypto.randomUUID(),
+    now = Date.now, makeConnectionId = createConnectionId,
     setTimer = globalThis.setTimeout.bind(globalThis), clearTimer = globalThis.clearTimeout.bind(globalThis)
   } = {}) {
     if (typeof api !== 'function' || typeof childId !== 'string' || !childId) throw new TypeError('API e perfil infantil são obrigatórios.');

@@ -16,8 +16,8 @@ const deferred = () => { let resolve, reject; const promise = new Promise((a, b)
 const settle = async () => { for (let i = 0; i < 16; i++) await Promise.resolve(); };
 const packet = { readingId: '00000000-0000-4000-8000-000000000001', bpm: 82, signalQuality: 95, measuredAt: '2026-10-09T12:34:56.000Z' };
 
-function harness({ request, close = () => Promise.resolve() } = {}) {
-  const radios = [], clouds = [], requests = [], notices = [], trace = [], intervals = new Map(), elements = new Map();
+function harness({ request, close = () => Promise.resolve(), browser = {}, secure = true } = {}) {
+  const radios = [], clouds = [], requests = [], notices = [], help = [], trace = [], intervals = new Map(), elements = new Map();
   let inGesture = false, intervalId = 0, currentTime = Date.parse(packet.measuredAt), signins = 0;
   for (const id of ['liveBandBpm', 'liveBandQuality', 'readingState', 'bandStatus', 'bandPill', 'overviewBandState',
     'bandConnectionHint', 'connectBand', 'bandConnect2', 'bandDisconnect2', 'bandPending', 'overviewPersist', 'portalRoot']) {
@@ -54,12 +54,14 @@ function harness({ request, close = () => Promise.resolve() } = {}) {
   const location = { pathname: '/responsavel' };
   const context = vm.createContext({
     RadioStub, CloudStub, AbortController, Date: ClockDate, location,
-    window: { isSecureContext: true, scrollTo() {} }, navigator: { bluetooth: {} },
+    window: { isSecureContext: secure, scrollTo() {} },
+    navigator: { userAgent: '', platform: '', maxTouchPoints: 0, bluetooth: { requestDevice() {} }, ...browser },
     document: { body: { classList: { remove() {} } } },
     $: selector => elements.get(selector) || null,
     updateDiagnostics() {}, closeVisualSettings() {}, closeModal() {},
     setPortalRoute(view) { location.pathname = view === 'guardian' ? '/responsavel' : '/'; },
     signinForm() { signins++; }, notify(message) { notices.push(message); },
+    showBandCompatibilityHelp(compatibility) { help.push(compatibility); },
     api(path, options = {}) {
       const call = { path, options }; requests.push(call); trace.push('api:' + path);
       return request ? request(call) : Promise.resolve({});
@@ -75,7 +77,7 @@ function harness({ request, close = () => Promise.resolve() } = {}) {
     function testState(){return {activeChildId,bandContext,portalRequest,guardianRefreshController,diagnostics:{...diagnostics}};}
     function enterChild(id){activeChildId=id;portalRequest++;location.pathname='/responsavel';}
   `, context, { filename: 'app.js (BLE portal functions)' });
-  return { context, radios, clouds, requests, notices, trace, intervals, elements,
+  return { context, radios, clouds, requests, notices, help, trace, intervals, elements,
     click() { inGesture = true; try { context.connectBand(); } finally { inGesture = false; } },
     state() { return context.testState(); },
     signins() { return signins; },
@@ -218,4 +220,46 @@ test('guardian logout closes the BLE cloud session before invalidating the authe
   assert.equal(button.disabled, false);
   assert.equal(h.state().activeChildId, null);
   assert.equal(h.notices.at(-1), 'Saiu');
+});
+
+test('Chrome on iPhone without Web Bluetooth opens iOS help without starting a radio or cloud session', () => {
+  const h = harness({ browser: {
+    bluetooth: undefined, platform: 'iPhone', maxTouchPoints: 5,
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 CriOS/140.0.7339.111 Mobile/15E148 Safari/604.1'
+  } });
+  h.click();
+  assert.equal(h.context.bandCompatibility().available, false);
+  assert.equal(h.help.length, 1); assert.equal(h.help[0].reason, 'ios');
+  assert.equal(h.radios.length, 0); assert.equal(h.clouds.length, 0); assert.equal(h.requests.length, 0);
+});
+
+test('iPad reporting a Mac user agent with touch still receives the iOS compatibility explanation', () => {
+  const h = harness({ browser: {
+    bluetooth: undefined, platform: 'MacIntel', maxTouchPoints: 5,
+    userAgent: 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15) AppleWebKit/605.1.15 Version/18.0 Mobile/15E148 Safari/604.1'
+  } });
+  h.click();
+  assert.equal(h.help.length, 1); assert.equal(h.help[0].reason, 'ios');
+  assert.equal(h.radios.length, 0); assert.equal(h.clouds.length, 0);
+});
+
+test('an iOS browser exposing requestDevice is allowed by capability and can open the picker', async () => {
+  const h = harness({ browser: {
+    platform: 'iPhone', maxTouchPoints: 5,
+    userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 Bluefy/3.4'
+  } });
+  h.click();
+  assert.equal(h.context.bandCompatibility().available, true);
+  assert.equal(h.context.bandCompatibility().reason, null);
+  assert.equal(h.help.length, 0); assert.equal(h.radios.length, 1);
+  assert.equal(h.trace.at(-1), 'chooser');
+  await settle(); assert.equal(h.clouds[0].readings.length, 1);
+  await h.context.disconnectBand();
+});
+
+test('an insecure page with requestDevice still explains the HTTPS requirement before creating sessions', () => {
+  const h = harness({ secure: false }); h.click();
+  assert.equal(h.help.length, 1); assert.equal(h.help[0].reason, 'insecure');
+  assert.equal(h.context.bandCompatibility().available, false);
+  assert.equal(h.radios.length, 0); assert.equal(h.clouds.length, 0); assert.equal(h.requests.length, 0);
 });

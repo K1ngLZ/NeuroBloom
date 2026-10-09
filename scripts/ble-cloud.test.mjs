@@ -8,7 +8,7 @@ const deferred = () => { let resolve, reject; const promise = new Promise((a, b)
 const settle = async () => { for (let i = 0; i < 32; i++) await Promise.resolve(); };
 const fail = (status, message = 'request failed', extra = {}) => Object.assign(new Error(message), { status, ...extra });
 const reading = (index = 1, time = BASE_TIME) => ({ readingId: uuid(index), bpm: 82, signalQuality: 95, measuredAt: new Date(time).toISOString() });
-function harness(handler = async call => call.path.endsWith('/ble/sessions') ? { session: { id: uuid(100) } } : { accepted: true, saved: 1, duplicates: 0 }) {
+function harness(handler = async call => call.path.endsWith('/ble/sessions') ? { session: { id: uuid(100) } } : { accepted: true, saved: 1, duplicates: 0 }, options = {}) {
   const calls = [], states = [], expired = [], timers = new Map();
   let current = BASE_TIME, timerId = 0, connections = 200;
   const client = new BleCloudBridge({
@@ -16,7 +16,8 @@ function harness(handler = async call => call.path.endsWith('/ble/sessions') ? {
     api(path, options) { const call = { path, body: JSON.parse(options.body), method: options.method }; calls.push(call); return handler(call, calls); },
     onState: state => states.push(state), onAuthExpired: detail => expired.push(detail),
     setTimer(callback, delay) { const id = ++timerId; timers.set(id, { callback, due: current + delay }); return id; },
-    clearTimer(id) { timers.delete(id); }
+    clearTimer(id) { timers.delete(id); },
+    ...options
   });
   return { client, calls, states, expired, timers,
     time() { return current; }, advance(milliseconds) { current += milliseconds; },
@@ -58,6 +59,39 @@ test('lost session-open response retries the same connectionId to prevent duplic
   const calls = h.calls.filter(call => call.path.endsWith('/ble/sessions'));
   assert.equal(calls.length, 2);
   assert.equal(calls[0].body.connectionId, calls[1].body.connectionId);
+  assert.equal(h.client.state.pending, 0);
+  await h.client.stop();
+});
+
+test('browsers without randomUUID open with a secure UUIDv4 and reuse it after a lost response', async t => {
+  const originalCrypto = globalThis.crypto;
+  const cryptoDescriptor = Object.getOwnPropertyDescriptor(globalThis, 'crypto');
+  let entropyRequests = 0, opens = 0;
+  t.after(() => Object.defineProperty(globalThis, 'crypto', cryptoDescriptor));
+  Object.defineProperty(globalThis, 'crypto', {
+    configurable: true,
+    value: { getRandomValues(bytes) { entropyRequests++; return originalCrypto.getRandomValues(bytes); } }
+  });
+  const h = harness(async call => {
+    if (call.path.endsWith('/ble/sessions')) {
+      if (++opens === 1) throw new Error('session response lost');
+      return { session: { id: uuid(100) } };
+    }
+    return { accepted: true, saved: 1, duplicates: 0 };
+  }, { makeConnectionId: undefined });
+
+  h.client.setConnected(true); h.client.add(reading()); await h.client.flush();
+  const firstOpen = h.calls.find(call => call.path.endsWith('/ble/sessions'));
+  assert.ok(firstOpen, 'session creation reaches the API without randomUUID');
+  assert.match(firstOpen.body.connectionId, /^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+  assert.equal(h.client.state.phase, 'offline');
+  assert.equal(h.client.state.pending, 1);
+  await h.next();
+  const openCalls = h.calls.filter(call => call.path.endsWith('/ble/sessions'));
+  assert.equal(openCalls.length, 2);
+  assert.equal(openCalls[0].body.connectionId, openCalls[1].body.connectionId);
+  assert.equal(entropyRequests, 1, 'a retry reuses the connection instead of generating another session');
+  assert.equal(h.client.state.phase, 'online');
   assert.equal(h.client.state.pending, 0);
   await h.client.stop();
 });
