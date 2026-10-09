@@ -330,7 +330,7 @@ if(mascotVideo){
   });
   mascotPause?.addEventListener('click',pauseMascot);
   mascotVideo.addEventListener('play',()=>{if(mascotBlocked())pauseMascot();else{showMascotStatus('');syncMascotControls()}});
-  ['pause','ended','emptied'].forEach(event=>mascotVideo.addEventListener(event,syncMascotControls));
+  ['pause','ended','emptied','seeked'].forEach(event=>mascotVideo.addEventListener(event,syncMascotControls));
   mascotVideo.addEventListener('error',()=>showMascotStatus('O vídeo não carregou. Você pode ler o convite da Lumi abaixo e escolher sua aventura.'));
   if('IntersectionObserver' in window){
     new IntersectionObserver(entries=>{mascotVisible=entries[0].isIntersecting;if(!mascotVisible)pauseMascot()},{threshold:.05}).observe(mascotVideo);
