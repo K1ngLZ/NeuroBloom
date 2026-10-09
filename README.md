@@ -1,6 +1,6 @@
-# NeuroBloom — protótipo escolar
+# NeuroBloom
 
-Projeto demonstrativo para o Colégio Módulo da Lapa.
+Projeto de tecnologia, cuidado e inclusão criado no Colégio Módulo da Lapa, com a NeuroBand, o painel familiar e o Bloom Arcade.
 
 ## Abrir
 
@@ -15,7 +15,7 @@ Para desenvolvimento local, siga `GUIA-DE-TESTE.md`. O Bluetooth exige localhost
 - Cadastro e login do responsável, sessão em cookie HTTP-only e acesso infantil por ID/PIN, integrados ao PostgreSQL.
 - Bloom Arcade com cinco aventuras originais feitas com GPT-6 Astra: Jardins de Aurora, Rastro Solar, Espada da Aurora, Ninja do Vento e Arena Cósmica. Cada campanha tem fases ou missões, controles próprios e conclusão.
 - Nickname privado por perfil infantil, histórico das 12 partidas mais recentes (tempo ativo, fase, pontos e estrelas) e progresso persistente no PostgreSQL. Cópia local permite continuar quando a conexão falha; a sincronização exige a sessão infantil.
-- Visualização de batimentos demonstrativos.
+- Página inicial com estados de espera, sem valores de batimentos inventados. O painel familiar mostra as leituras recebidas pela API ou pela NeuroBand.
 - Primeira integração Web Bluetooth preparada para receber pacotes da NeuroBand em Chrome/Edge usando os UUIDs definidos no firmware de bancada.
 - Navegação por teclado, formulários com foco acessível, controles de toque na prévia e preferências locais de fonte e animação.
 
@@ -23,9 +23,9 @@ O sistema visual da página está em `premium.css` e o dos portais em `portal-pr
 
 ## Antes de qualquer uso real
 
-Este protótipo não é dispositivo médico, não diagnostica nem detecta emergências. MAX30102 exige validação de hardware, filtragem de sinal, calibração e testes independentes. Não use leituras ou limiares deste site para decisões clínicas. Um sensor óptico no pulso pode produzir leituras erradas por movimento, ajuste, perfusão e outras condições. O aviso deve instruir o responsável a buscar orientação profissional e serviços de emergência quando necessário.
+A NeuroBloom não é dispositivo médico, não diagnostica nem detecta emergências. MAX30102 exige validação de hardware, filtragem de sinal, calibração e testes independentes. Não use leituras ou limiares deste site para decisões clínicas. Um sensor óptico no pulso pode produzir leituras erradas por movimento, ajuste, perfusão e outras condições. O aviso deve instruir o responsável a buscar orientação profissional e serviços de emergência quando necessário.
 
-Não inserir dados reais de crianças. PostgreSQL, autenticação, família e histórico de leituras são testados com dados fictícios. A integração Web Bluetooth está preparada no frontend e o firmware compila, mas a conexão física com a pulseira ainda depende da montagem/USB/ESP32. SMTP e cobrança/PagBank ainda não estão concluídos. Não armazene credenciais ou dados sensíveis em localStorage ou código do navegador.
+Os testes de PostgreSQL, autenticação, família e histórico de leituras usam dados fictícios. A integração Web Bluetooth está preparada no frontend e o firmware compila, mas a conexão física com a pulseira ainda depende da montagem/USB/ESP32. SMTP e cobrança/PagBank ainda não estão concluídos. Não armazene credenciais ou dados sensíveis em localStorage ou código do navegador.
 
 ## Arquitetura recomendada para evolução
 

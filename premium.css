@@ -84,7 +84,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .hero-eyebrow { letter-spacing: 1.45px; color: var(--secondary); font-size: .58rem; }
 .eyebrow i { width: 6px; height: 6px; background: var(--green); box-shadow: 0 0 0 4px #91b9a010; }
 .eyebrow-divider { width: 1px; height: 12px; background: var(--border); }
-.beta-label { font-size: .52rem; color: var(--subtle); }
+.project-label { font-size: .52rem; color: var(--subtle); }
 .hero h1, body.dark .hero h1 { color: var(--text); font-family: "Space Grotesk", Manrope, sans-serif; font-size: clamp(3.5rem, 5.05vw, 4.6rem); font-weight: 500; letter-spacing: -3.5px; line-height: 1.065; margin: 25px 0 26px; }
 .hero h1 em, h2 em { color: var(--accent); font-style: normal; }
 .title-star { font-size: .52em; display: inline-block; vertical-align: 18%; margin-inline: 13px 2px; font-weight: 400; }
@@ -194,7 +194,7 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .window-dots i { width: 6px; height: 6px; background: #c395a3; border-radius: 50%; }
 .window-dots i:nth-child(2) { background: #cbb784; }
 .window-dots i:nth-child(3) { background: #8eaf9c; }
-.game-beta { font-size: .47rem; color: var(--subtle); letter-spacing: 1px; }
+.game-label { font-size: .47rem; color: var(--subtle); letter-spacing: 1px; }
 #miniGame { border-radius: 8px; image-rendering: auto; background: #e3e8f4; touch-action: manipulation; }
 .game-caption { padding: 16px 7px 6px; gap: 12px; font-size: .61rem; color: var(--secondary); font-weight: 500; }
 .game-caption > div { display: flex; align-items: center; gap: 10px; }
@@ -339,7 +339,7 @@ body.large-type .feature p, body.large-type .person p, body.large-type .school-n
   .hero { grid-template-columns: 1fr 1fr; gap: 10px; min-height: 580px; padding-block: 48px; }
   .hero h1, body.dark .hero h1 { font-size: clamp(2.65rem,5.5vw,3.1rem); letter-spacing: -2.3px; }
   .hero-eyebrow { gap: 7px; font-size: .5rem; letter-spacing: .8px; }
-  .beta-label { font-size: .45rem; }
+  .project-label { font-size: .45rem; }
   .hero-art { height: 470px; }
   .device-wrap { transform: scale(.88) rotate(-12deg); }
   .orbit-one { width: 290px; height: 290px; }
@@ -398,7 +398,7 @@ body.large-type .feature p, body.large-type .person p, body.large-type .school-n
   .hero { grid-template-columns: 1fr; padding-block: 52px 25px; gap: 24px; min-height: auto; }
   .hero h1, body.dark .hero h1 { font-size: clamp(3.05rem,10vw,4.5rem); letter-spacing: -2.7px; line-height: 1.07; margin-block: 23px; }
   .hero-eyebrow { font-size: .55rem; letter-spacing: 1.1px; gap: 9px; }
-  .beta-label { font-size: .48rem; }
+  .project-label { font-size: .48rem; }
   .lead { max-width: 450px; font-size: .84rem; line-height: 1.85; }
   .hero-actions { margin-top: 27px; gap: 22px; }
   .btn.big { padding: 15px 21px; min-height: 52px; font-size: .8rem; }
@@ -490,3 +490,12 @@ body.large-type .feature p, body.large-type .person p, body.large-type .school-n
   .person-avatar { margin: 0; }
   .person-name > span { min-height: 0; }
 }
+
+/* Empty state before the NeuroBand supplies a reading. */
+.connection-empty{display:flex;flex-direction:column;align-items:center;gap:12px;padding:27px 18px 21px;margin-top:18px;border:1px dashed var(--border);border-radius:12px;text-align:center;background:var(--bg)}
+.connection-empty>.icon{width:28px;height:28px;color:var(--accent)}
+.connection-empty>strong{font-family:"Space Grotesk",sans-serif;font-size:.85rem;color:var(--text);font-weight:500}
+.connection-empty>span{max-width:260px;font-size:.66rem;line-height:1.7;color:var(--secondary)}
+.connection-empty>.btn{margin-top:3px}
+.waiting-pill{color:var(--secondary);background:var(--bg);border-color:var(--border)}
+.waiting-pill i{background:var(--subtle)}
