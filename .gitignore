@@ -11,3 +11,4 @@ Thumbs.db
 public/
 .vercel/
 .cache/
+__pycache__/

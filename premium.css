@@ -202,11 +202,14 @@ a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible
 .game-caption > div > .icon { width: 17px; height: 17px; color: var(--accent); }
 .game-caption small { display: block; margin-top: 5px; color: var(--subtle); font-size: .49rem; font-weight: 400; }
 .mascot-caption { flex-wrap: wrap; }
+.mascot-preview .mascot-caption span { font-size: .75rem; }
+.mascot-caption small { font-size: .68rem; line-height: 1.6; }
 .mascot-actions { margin-left: auto; }
+.mascot-actions .btn.small { min-height: 44px; font-size: .75rem; }
 .mascot-actions button[hidden] { display: none; }
-.mascot-preview .mascot-description, .mascot-preview .mascot-status { margin: 12px 7px 5px; color: var(--subtle); font-size: .68rem; line-height: 1.7; }
+.mascot-preview .mascot-description, .mascot-preview .mascot-status { margin: 12px 7px 5px; color: var(--subtle); font-size: .76rem; line-height: 1.7; }
 .mascot-preview .mascot-status { color: var(--secondary); }
-.mascot-transcript { position: relative; z-index: 1; margin-top: 15px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--secondary); font-size: .72rem; line-height: 1.85; }
+.mascot-transcript { position: relative; z-index: 1; margin-top: 15px; border: 1px solid var(--border); border-radius: 10px; background: var(--surface); color: var(--secondary); font-size: .8rem; line-height: 1.85; }
 .mascot-transcript summary { padding: 12px 16px; cursor: pointer; font-weight: 600; color: var(--accent); }
 .mascot-transcript summary:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; border-radius: 10px; }
 .mascot-preview .mascot-transcript p { margin: 0; padding: 0 16px 16px; color: var(--secondary); font-size: inherit; line-height: inherit; }

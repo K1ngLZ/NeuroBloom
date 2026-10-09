@@ -317,7 +317,7 @@ if(mascotVideo){
   const mascotBlocked=()=>document.hidden||!mascotVisible||document.body.classList.contains('portal-mode')||modal.classList.contains('show');
   function syncMascotControls(){
     const playing=!mascotVideo.paused&&!mascotVideo.ended;
-    if(mascotPlay){mascotPlay.hidden=playing;mascotPlay.textContent=mascotVideo.ended?'Rever o convite ▷':mascotVideo.currentTime>0?'Continuar convite ▷':'Ouvir a Lumi ▷'}
+    if(mascotPlay){mascotPlay.hidden=playing;mascotPlay.textContent=mascotVideo.ended?'Rever o passeio ▷':mascotVideo.currentTime>0?'Continuar passeio ▷':'Ouvir a Lumi ▷'}
     if(mascotPause)mascotPause.hidden=!playing;
   }
   function pauseMascot(){mascotVideo.pause();syncMascotControls()}
@@ -326,12 +326,12 @@ if(mascotVideo){
     if(mascotBlocked())return;
     showMascotStatus('');
     if(mascotVideo.ended)mascotVideo.currentTime=0;
-    mascotVideo.play().catch(()=>{showMascotStatus('Não foi possível iniciar o vídeo. Tente pelo botão de play do vídeo ou leia o convite abaixo.');syncMascotControls()});
+    mascotVideo.play().catch(()=>{showMascotStatus('Não foi possível iniciar o vídeo. Tente pelo botão de play do vídeo ou leia a fala da Lumi abaixo.');syncMascotControls()});
   });
   mascotPause?.addEventListener('click',pauseMascot);
   mascotVideo.addEventListener('play',()=>{if(mascotBlocked())pauseMascot();else{showMascotStatus('');syncMascotControls()}});
   ['pause','ended','emptied','seeked'].forEach(event=>mascotVideo.addEventListener(event,syncMascotControls));
-  mascotVideo.addEventListener('error',()=>showMascotStatus('O vídeo não carregou. Você pode ler o convite da Lumi abaixo e escolher sua aventura.'));
+  mascotVideo.addEventListener('error',()=>showMascotStatus('O vídeo não carregou. Você pode ler a fala da Lumi abaixo e escolher sua aventura.'));
   if('IntersectionObserver' in window){
     new IntersectionObserver(entries=>{mascotVisible=entries[0].isIntersecting;if(!mascotVisible)pauseMascot()},{threshold:.05}).observe(mascotVideo);
   }

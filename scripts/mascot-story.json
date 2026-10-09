@@ -1,0 +1,14 @@
+[
+  {"scene":"intro","text":"Oi, amiguinho! Eu sou a Lumi, sua amiga da NeuroBloom. Que bom ter você aqui!"},
+  {"scene":"invite","text":"E deixa eu te mostrar o que iremos ver!"},
+  {"scene":"launch","text":"Vem comigo! Vou entrar no meu foguete. Três, dois, um... vamos explorar!"},
+  {"scene":"platform","text":"Nos Jardins de Aurora, vamos pular pelas ilhas e encontrar cristais!"},
+  {"scene":"speed","text":"No Rastro Solar, tem corridas, molas e anéis brilhantes. Uhu!"},
+  {"scene":"sword","text":"Na Espada da Aurora, você melhora sua espada e ajuda a guardiã do bosque!"},
+  {"scene":"ninja","text":"No Ninja do Vento, vamos saltar pelas paredes e proteger os santuários!"},
+  {"scene":"energy","text":"E na Arena Cósmica, você pode voar e descobrir poderes de energia!"},
+  {"scene":"profile","text":"Escolha seu apelido, guarde suas conquistas e continue de onde parou."},
+  {"scene":"band","text":"Olha a NeuroBand! É a pulseira que você poderá usar. Quando conectada, seus registros poderão aparecer no painel da família."},
+  {"scene":"family","text":"Quem cuida de você acompanha as informações. E você brinca no seu ritmo, com pausas quando quiser!"},
+  {"scene":"outro","text":"Gostou do passeio? Aperte Vamos jogar, escolha uma aventura e venha florescer comigo!"}
+]
