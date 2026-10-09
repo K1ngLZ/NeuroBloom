@@ -11,8 +11,8 @@
     "start:prod": "npm run db:migrate && npm start",
     "dev": "node --watch src/server.js",
     "db:migrate": "node src/migrate.js",
-    "test": "node --test test/auth.test.js test/progress.test.js test/game-sessions.test.js",
-    "test:integration": "node --test test/integration.test.js"
+    "test": "node --test test/auth.test.js test/progress.test.js test/game-sessions.test.js test/ble.test.js",
+    "test:integration": "node --test test/integration.test.js test/ble.integration.test.js"
   },
   "dependencies": {
     "@fastify/cookie": "^11.0.2",

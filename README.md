@@ -17,7 +17,7 @@ Para desenvolvimento local, siga `GUIA-DE-TESTE.md`. O Bluetooth exige localhost
 - Nickname privado por perfil infantil, histórico das 12 partidas mais recentes (tempo ativo, fase, pontos e estrelas) e progresso persistente no PostgreSQL. Cópia local permite continuar quando a conexão falha; a sincronização exige a sessão infantil.
 - Página inicial com estados de espera, sem valores de batimentos inventados. O painel familiar mostra as leituras recebidas pela API ou pela NeuroBand.
 - Passeio animado da Lumi na página inicial: embarque no foguete, cinco jogos, apelido/conquistas, NeuroBand e painel familiar, com voz neural em português, legendas e atalho para o portal infantil. O áudio começa quando a pessoa escolhe assistir; o vídeo pode ser visto novamente pelo controle de replay.
-- Primeira integração Web Bluetooth preparada para receber pacotes da NeuroBand em Chrome/Edge usando os UUIDs definidos no firmware de bancada.
+- Integração NeuroBand → Web Bluetooth → API Railway → PostgreSQL. O painel familiar mostra conexão, notificações, última leitura e confirmação do servidor, com reconexão automática e envio em lotes sem duplicar registros.
 - Navegação por teclado, formulários com foco acessível, controles de toque na prévia e preferências locais de fonte e animação.
 
 O sistema visual da página está em `premium.css` e o dos portais em `portal-premium.css`, carregados após a folha de estilos original. As integrações e o conteúdo do projeto foram preservados.
@@ -47,7 +47,17 @@ A publicação entrega vídeo H.264 com áudio AAC e permite apenas os três arq
 
 A NeuroBloom não é dispositivo médico, não diagnostica nem detecta emergências. MAX30102 exige validação de hardware, filtragem de sinal, calibração e testes independentes. Não use leituras ou limiares deste site para decisões clínicas. Um sensor óptico no pulso pode produzir leituras erradas por movimento, ajuste, perfusão e outras condições. O aviso deve instruir o responsável a buscar orientação profissional e serviços de emergência quando necessário.
 
-Os testes de PostgreSQL, autenticação, família e histórico de leituras usam dados fictícios. A integração Web Bluetooth está preparada no frontend e o firmware compila, mas a conexão física com a pulseira ainda depende da montagem/USB/ESP32. SMTP e cobrança/PagBank ainda não estão concluídos. Não armazene credenciais ou dados sensíveis em localStorage ou código do navegador.
+Os testes de PostgreSQL, autenticação, família e histórico de leituras usam dados fictícios. A integração BLE está implementada no frontend e no backend e o firmware foi compilado para ESP32 clássico. A confirmação do pareamento físico e do sinal óptico depende de uma placa montada com o firmware carregado. SMTP e cobrança/PagBank ainda não estão concluídos. Não armazene credenciais ou dados sensíveis em localStorage ou código do navegador.
+
+## Conexão da NeuroBand
+
+Entre no [painel familiar online](https://neuro-bloom-swart.vercel.app/responsavel), abra **NeuroBand** e toque em **Conectar pulseira** no Chrome ou Edge com Web Bluetooth disponível. Escolha `NeuroBand-XXXX` e mantenha esta aba aberta. A pulseira se comunica com o Bluetooth do aparelho próximo; o site encaminha as leituras à API pela internet. A Railway não tem acesso direto ao rádio Bluetooth.
+
+O protocolo usa três bytes: BPM `uint16` little-endian e índice de contato óptico `uint8` (0–100). A montagem, os UUIDs e a compilação estão no [guia do firmware](hardware/neuroband/README.md). O anúncio inicia mesmo sem sensor; nesse caso haverá conexão, mas nenhuma leitura válida.
+
+As amostras têm identificadores únicos, são enviadas a cada cinco segundos em lotes de até 20 e ficam vinculadas exclusivamente ao perfil do responsável autenticado. Falhas transitórias mantêm até 120 amostras por no máximo cinco minutos em memória, sem gravar sinais fisiológicos em localStorage. Fechar a aba, sair da conta ou desconectar descarta amostras ainda não confirmadas. O navegador renova a sessão da conta enquanto o painel está aberto; cookies expirados exigem novo login.
+
+Validação de software: `node --test scripts/ble.test.mjs scripts/ble-cloud.test.mjs`, `npm --prefix server test` e `npm --prefix server run test:integration`. Os testes cobrem notificações, reconexão, requisições em andamento, respostas perdidas, duplicações, transações e isolamento entre famílias. Eles não substituem o pareamento e a medição no hardware real.
 
 ## Arquitetura recomendada para evolução
 
@@ -62,7 +72,7 @@ Os testes de PostgreSQL, autenticação, família e histórico de leituras usam 
 ## Próximos passos de integração
 
 1. Ampliar os cinco mundos com novas fases, personagens originais e testes de experiência com jogadores.
-2. Finalizar a integração física: ESP32 + MAX30102, BLE GATT, leitura no navegador e persistência no PostgreSQL.
+2. Carregar o firmware na placa identificada, conferir a montagem ESP32 + MAX30102 e validar o pareamento físico e as leituras no site online.
 3. Configurar SMTP para demonstração de notificação e depois implementar PagBank somente com documentação oficial, sandbox e webhook validado.
 4. Fazer testes de bancada e validação independente do sensor e dos alertas antes de qualquer uso com crianças.
 5. Para produção, revisar autenticação, consentimento, retenção/exclusão e requisitos LGPD antes de aceitar dados reais.

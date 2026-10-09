@@ -19,6 +19,19 @@ CREATE TABLE IF NOT EXISTS vitals (
  measured_at TIMESTAMPTZ NOT NULL, received_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 CREATE INDEX IF NOT EXISTS vitals_child_time_idx ON vitals(child_id, measured_at DESC);
+CREATE TABLE IF NOT EXISTS ble_sessions (
+ id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+ child_id UUID NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+ client_connection_id UUID NOT NULL, device_hash CHAR(64) NOT NULL,
+ device_name TEXT NOT NULL, started_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+ last_seen TIMESTAMPTZ NOT NULL DEFAULT now(), last_packet_at TIMESTAMPTZ, ended_at TIMESTAMPTZ,
+ UNIQUE(child_id,client_connection_id)
+);
+CREATE INDEX IF NOT EXISTS ble_sessions_child_time_idx ON ble_sessions(child_id,started_at DESC);
+ALTER TABLE vitals ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'legacy' CHECK(source IN ('legacy','ble','device'));
+ALTER TABLE vitals ADD COLUMN IF NOT EXISTS ble_session_id UUID REFERENCES ble_sessions(id) ON DELETE SET NULL;
+ALTER TABLE vitals ADD COLUMN IF NOT EXISTS client_reading_id UUID;
+CREATE UNIQUE INDEX IF NOT EXISTS vitals_reading_dedupe_idx ON vitals(child_id,client_reading_id);
 CREATE TABLE IF NOT EXISTS subscriptions (
  id UUID PRIMARY KEY DEFAULT gen_random_uuid(), guardian_id UUID NOT NULL REFERENCES guardians(id) ON DELETE CASCADE,
  provider TEXT NOT NULL DEFAULT 'pagbank', provider_reference TEXT, status TEXT NOT NULL DEFAULT 'pending',

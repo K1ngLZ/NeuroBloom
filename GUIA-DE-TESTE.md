@@ -1,71 +1,65 @@
-# NeuroBloom — guia de teste local
+# NeuroBloom — guia de desenvolvimento e conexão
 
-## 1. Abrir o site (Windows)
+## Site online
 
-1. Abra o Explorador e entre em `Downloads\NeuroBloom`.
-2. Clique na barra de endereço, digite `powershell` e pressione Enter.
-3. Execute:
-   ```powershell
-   py -m http.server 5500
-   ```
-   Se o comando `py` não existir, tente `python -m http.server 5500`.
-4. No Chrome ou Edge, abra http://localhost:5500
-5. Para encerrar o servidor, volte ao PowerShell e pressione Ctrl+C.
+Abra https://neuro-bloom-swart.vercel.app. O cadastro, login, jogos e dados familiares usam a API e o PostgreSQL na Railway. Visitantes não precisam iniciar servidor local.
 
-O servidor estático permite testar layout e configurações. Não publique essa pasta na internet como produto final.
+Para a NeuroBand, entre no painel do responsável, abra **NeuroBand** e use **Conectar pulseira**. O caminho é **ESP32 → Bluetooth do aparelho → navegador → API HTTPS → PostgreSQL**. Mantenha a aba aberta durante a coleta. O servidor online não consegue usar o rádio Bluetooth de um aparelho remoto por conta própria.
 
-## 2. O que dá para testar agora
+Use Chrome/Edge no Windows ou macOS, ou Chrome no Android, com Web Bluetooth disponível. Safari, Firefox e navegadores comuns no iPhone/iPad não oferecem esse fluxo. No navegador interno do Codex, o botão informa quando Bluetooth não está disponível; nesse caso abra o site no navegador compatível do aparelho.
 
-- Navegação pelas seções e layout responsivo.
-- Prévia de jogo Canvas (botão “Jogar prévia”; setas/A-D para mover e Espaço/Seta para cima para pular).
-- Configurações de acessibilidade: botão de engrenagem, tema escuro, redução de animação e fonte maior. As preferências são locais ao navegador.
-- Cadastro/entrada: os formulários chamam a API local e já foram testados com PostgreSQL persistente (cadastro, logout e login).
-- Painel: a última leitura vem da API e o histórico já foi confirmado visualmente com três leituras sintéticas de teste.
-- Bluetooth: a integração Web Bluetooth está preparada no site e os UUIDs coincidem com o firmware. A conexão física ainda não foi testada porque a pulseira está em montagem.
-- Diagnóstico: o painel da família mostra suporte ao Web Bluetooth, estado da NeuroBand, etapas GATT, notificações, último pacote recebido, persistência na API e tentativas de reconexão. O botão “Testar API” verifica o backend sem expor segredos.
+## Preparar o desenvolvimento local
 
-## 3. Backend/API (não é necessário para abrir a página)
+Na pasta do projeto:
 
-O backend está em `server` e usa Node.js, Fastify e PostgreSQL. Nesta máquina, o banco `neurobloom` já foi criado, o schema foi aplicado e as permissões do usuário da API foram configuradas. Cadastro, login, sessão, consulta da família e histórico de leituras já foram testados localmente.
+```powershell
+node scripts/build-web.mjs
+node scripts/dev-web.mjs
+```
 
-### Preparar
+Abra http://localhost:5500. O servidor publica somente a pasta `public/` preparada pelo build; arquivos de backend, `.env`, backups e modelos de voz ficam fora dela. Para encerrar, pressione Ctrl+C no terminal.
 
-1. Instale PostgreSQL 16+ e crie um banco vazio chamado `neurobloom` e usuário/senha locais.
-2. Copie `server\.env.example` para `server\.env`.
-3. Edite `.env` com `DATABASE_URL=postgres://USUARIO:SENHA@localhost:5432/neurobloom`, um `JWT_SECRET` aleatório longo, `DEVICE_INGEST_SECRET` aleatório e `FRONTEND_ORIGIN=http://localhost:5500`.
-4. No PowerShell:
-   ```powershell
-   cd "$env:USERPROFILE\Downloads\NeuroBloom\server"
-   npm install
-   ```
-5. No psql/pgAdmin, execute o conteúdo de `schema.sql` no banco neurobloom.
-6. Inicie com `npm start`. A API escuta em http://127.0.0.1:3333.
-7. Em outra janela, abra http://localhost:3333/api/health. Um `ok:true` confirma que o processo responde; não prova que todas as integrações estejam prontas.
+A API local escuta na porta 3333. Configure PostgreSQL 16+, copie `server/.env.example` para `server/.env` e defina `DATABASE_URL`, `JWT_SECRET` aleatório e `FRONTEND_ORIGIN=http://localhost:5500`. Em `server/`:
 
-**Importante:** o frontend já possui integração local com os endpoints de autenticação/família e consulta de leitura. PagBank checkout/webhook está deliberadamente desativado (HTTP 501) até implementar a validação oficial de assinatura, idempotência e credenciais sandbox. SMTP só funciona após configurar um provedor de e-mail no .env. Nunca coloque tokens no JavaScript do navegador ou envie credenciais para o chat.
+```powershell
+npm ci
+npm run db:migrate
+npm run dev
+```
 
-## 4. Guia de bancada — ESP32 + MAX30102
+`GET http://localhost:3333/api/health` confirma banco e tabelas disponíveis. A migração preserva contas e adiciona as tabelas de jogos e conexões BLE. Não compartilhe `.env` ou segredos no chat. Instruções de hospedagem: [DEPLOY.md](DEPLOY.md).
 
-A pulseira física não pode ser conectada só pelo site. É necessário montar o circuito e carregar firmware no ESP32.
+## Firmware e pareamento físico
 
-1. Separe uma placa ESP32, módulo MAX30102, cabos adequados e cabo USB de dados. Confirme a pinagem e tensão do SEU módulo; placas breakout diferem.
-2. Em computador de bancada, instale Arduino IDE 2.x.
-3. No Arduino IDE, instale o pacote de placas “esp32 by Espressif Systems” pelo Boards Manager. Selecione o modelo exato da placa e a porta COM que aparece ao conectar USB.
-4. No Library Manager, instale uma biblioteca compatível com MAX3010x (por exemplo, SparkFun MAX3010x Sensor Library).
-5. Comece com um exemplo de leitura/identificação do sensor e abra Tools > Serial Monitor. Use a velocidade indicada pelo exemplo. Confirme que o sensor responde e observe valores apenas para fins experimentais.
-6. Antes de criar a integração web, escolha e documente um protocolo:
-   - BLE GATT: definir UUID de serviço e característica, formato da mensagem e permissões; o firmware e o frontend têm de usar os mesmos UUIDs.
-   - Wi-Fi/HTTPS: firmware envia leituras à API por TLS com autenticação individual. Não use segredo compartilhado embutido em firmware distribuído.
-7. O site atual já implementa Web Bluetooth com os mesmos UUIDs do firmware: serviço `7b6e1000-8d4a-4a7f-9b31-0b6e2a1c1000` e característica `7b6e1001-8d4a-4a7f-9b31-0b6e2a1c1000`. O navegador recebe o pacote de 3 bytes (BPM uint16 little-endian + qualidade uint8) e envia a leitura ao endpoint autenticado de persistência. A conexão física ainda precisa ser testada com a pulseira montada. O firmware agora não envia pacote BLE enquanto ainda não houver batimento válido, evitando transmitir BPM=0 como se fosse uma leitura.
-8. Faça testes apenas em bancada. Não use em criança nem tome decisões de saúde a partir das leituras. MAX30102/ESP32 não são dispositivo médico validado; movimento, ajuste e qualidade de contato podem gerar resultados incorretos.
+Consulte [hardware/neuroband/README.md](hardware/neuroband/README.md) para circuito, placa, biblioteca, UUIDs e gravação do firmware. O código já compila para ESP32 Dev Module clássico; a conexão física precisa ser confirmada na placa montada. Não carregue firmware em uma porta COM cuja placa não foi identificada.
 
-## 5. Limites de segurança e privacidade
+1. Monte ESP32 + MAX30102 e confirme alimentação, I2C e modelo da placa.
+2. Carregue `hardware/neuroband/neuroband.ino` e confira o monitor serial a 115200 baud. O anúncio deve aparecer como `NeuroBand-XXXX`.
+3. Abra o site HTTPS perto da pulseira, entre como responsável e escolha **Conectar pulseira**. Selecione o anúncio correspondente à sua placa na janela do navegador.
+4. Confira conexão, GATT e notificações no painel. Sem sensor/contato válido, a conexão pode estar ativa, mas o BPM continua aguardando.
+5. Quando houver batimento válido, confira BPM/índice de contato, confirmação de envio e histórico. O envio ocorre em lotes a cada cinco segundos. Retirar o contato interrompe notificações; após 15 segundos, o painel deixa de exibir o valor como leitura recente.
+6. Desligue a pulseira e ligue novamente para conferir reconexão automática. Teste uma interrupção breve de internet: a fila em memória guarda até 120 amostras por até cinco minutos e repete os mesmos IDs sem duplicar o histórico.
+7. Use **Desconectar** antes de sair. Fechar a aba, encerrar a conta ou desconectar descarta amostras ainda não confirmadas. Verifique que o histórico confirmado permanece disponível ao entrar novamente.
 
-NeuroBloom é um protótipo escolar. Não é dispositivo médico, não diagnostica autismo nem qualquer condição, não identifica emergência e não substitui profissionais de saúde. Não use limiares de BPM como alerta clínico. Antes de qualquer piloto real com menores, são necessários consentimento verificável do responsável, avaliação LGPD, segurança, retenção/exclusão de dados, testes independentes do hardware e supervisão apropriada.
+BLE é próximo ao aparelho que abriu o site, depende do rádio/permissões e do firmware NeuroBand. Não se trata de um conector genérico para qualquer relógio Bluetooth. O nome do dispositivo e seu ID do navegador são metadados; o firmware atual não oferece identidade criptográfica do hardware.
 
-## 6. Problemas comuns
+## Verificação de software
 
-- “Porta 5500 em uso”: escolha outra porta, por exemplo `py -m http.server 8080`, e acesse http://localhost:8080.
-- Página sem estilo: confirme que `styles.css` está na mesma pasta de `index.html`.
-- API não inicia: confira se PostgreSQL está ativo, URL e credenciais em `.env`, se executou `schema.sql` e se npm install terminou sem erros.
-- Sensor não aparece: confira cabo USB de dados, driver/porta COM, placa selecionada, alimentação e conexões I²C conforme documentação do módulo.
+```powershell
+node --test scripts/ble.test.mjs scripts/ble-cloud.test.mjs scripts/build-web.test.mjs
+npm --prefix server test
+npm --prefix server run test:integration
+```
+
+Os testes BLE usam rádio sintético: cobrem o primeiro pacote, desconexão durante uma operação, reconexão, fila entre controladores, lote repetido, rede indisponível, expiração e logout. Os testes de integração usam schema temporário em PostgreSQL local, isolado das contas existentes; validam persistência, propriedade, concorrência e rollback. Testes de software não comprovam pareamento nem precisão do sensor real.
+
+## Problemas comuns
+
+- **Bluetooth indisponível:** use navegador compatível e HTTPS/localhost, ative Bluetooth e confira permissões do sistema. A seleção exige clicar no botão do site.
+- **NeuroBand não aparece:** confira firmware, cabo de dados, placa, nome no monitor serial e proximidade. O anúncio inicia mesmo sem sensor e retorna cerca de 500 ms após desconexão.
+- **Conecta sem BPM:** confira sensor/I2C e contato óptico; o firmware não envia zeros como medição.
+- **API indisponível:** confira `/api/health`, conexão com internet e diagnóstico de persistência. No desenvolvimento local, confirme PostgreSQL, `.env` e migração.
+- **Sessão expirada:** entre novamente; cookies expirados não podem ser renovados. O painel renova uma sessão válida ao abrir e a cada oito minutos.
+- **Porta 5500 ocupada:** encerre o servidor anterior ou use uma porta/origem local permitida pela API.
+
+A NeuroBloom não é um dispositivo médico validado. O índice de contato não representa precisão clínica ou detecção de estresse. Montagem, sinal e segurança precisam de validação independente; não use as leituras para decisões clínicas ou emergências. SMTP e cobrança/PagBank seguem pendentes.

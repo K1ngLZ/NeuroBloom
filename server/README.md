@@ -32,7 +32,7 @@ O servidor recusa inicialização sem banco, segredo forte ou origem HTTPS em pr
 ## Autenticação e testes
 
 - Cadastro valida nomes, e-mail, senha de 12 a 128 caracteres, PIN de 6 a 32 caracteres e consentimento. E-mail é normalizado com trim e lowercase. Responsável e criança são criados na mesma transação; e-mail duplicado retorna HTTP 409.
-- Login familiar usa `nb_session` por 20 minutos; login infantil usa `nb_kid_session` por 30 minutos. Cada middleware verifica o cookie próprio, assinatura, expiração e papel. As sessões podem coexistir no mesmo navegador.
+- Login familiar usa `nb_session` por 20 minutos; login infantil usa `nb_kid_session` por 30 minutos. Cada middleware verifica o cookie próprio, assinatura, expiração e papel. As sessões podem coexistir no mesmo navegador. `POST /api/auth/refresh` renova somente uma sessão válida do responsável cuja conta ainda existe. O painel chama a renovação a cada oito minutos.
 - Logout limpa o cookie correspondente. Família e perfil infantil exigem uma conta que ainda exista no banco.
 - Senhas e PINs são armazenados com Argon2; respostas de autenticação não retornam os hashes.
 
@@ -42,10 +42,28 @@ O servidor recusa inicialização sem banco, segredo forte ou origem HTTPS em pr
 
 Rotas preservadas: leituras recentes/históricas, ingestão BLE, cadastro de dispositivo e ingestão com segredo individual, teste de e-mail se SMTP configurado. `DEVICE_INGEST_SECRET` global não é necessário; cada dispositivo recebe seu segredo na rota `device-enrollment`.
 
-Ainda pendentes: verificação de e-mail/recuperação de senha, checkout PagBank/webhook (HTTP 501), autorização de jogos, protocolo ESP32 final, backups/retenção e revisão para uso com dados reais.
+Ainda pendentes: verificação de e-mail/recuperação de senha, checkout PagBank/webhook (HTTP 501), validação física do ESP32/sensor, backups/retenção e revisão para uso com dados reais.
 
 Privacidade: dados de criança e sinais fisiológicos são sensíveis. O ambiente de demonstração deve usar dados fictícios até concluir consentimento verificável, minimização, retenção/exclusão, análise de risco e conformidade LGPD. O MAX30102 não é equipamento médico por si só.
-# Progresso dos jogos
+## NeuroBand BLE
+
+O aparelho com o navegador faz a ponte Bluetooth → HTTPS; o servidor recebe os dados pela sessão do responsável. Todas as rotas abaixo exigem `nb_session` e propriedade do perfil infantil. Cookies infantis recebem 401; perfis de outra família recebem 404. O identificador Bluetooth é armazenado como SHA-256 e não prova a autenticidade do hardware.
+
+| Método e rota (prefixo `/api/children/:id`) | Corpo / resultado |
+| --- | --- |
+| `POST /ble/sessions` | `{ deviceId, deviceName, connectionId? }`; retorna 201 `{ session, protocol }`. `connectionId` UUID torna novas tentativas idempotentes. |
+| `GET /ble/status` | Última `{ session, connected }`; sem conexão retorna `session:null`. |
+| `POST /ble/sessions/:sessionId/heartbeat` | Renova `last_seen` da conexão aberta. |
+| `POST /ble/sessions/:sessionId/end` | Encerra a conexão; repetir é permitido. |
+| `POST /vitals/ble` | `{ sessionId, readings:[{ readingId, bpm, signalQuality, measuredAt }] }`; retorna 202 `{ accepted, saved, duplicates }`. |
+
+Lotes aceitam 1–20 amostras, BPM inteiro 25–250, índice 0–100 e timestamp ISO entre cinco minutos atrás e 30 segundos à frente. `readingId` UUID é único por criança, inclusive entre sessões: repetir um lote não duplica o histórico. A transação bloqueia a sessão até inserir o lote inteiro, evitando escrita após encerramento e salvamento parcial. O formato antigo com uma leitura sem `sessionId` continua aceito durante a atualização do frontend.
+
+`connected` representa o heartbeat da ponte do navegador: após 65 segundos sem contato, o estado é `stale`; após cinco minutos sem atividade, escritas retornam 410. Sessões encerradas retornam 409 e exigem nova abertura. Isso não é verificação independente do rádio nem da presença no pulso. Limite compartilhado: 90 chamadas BLE/minuto por responsável autenticado, para que famílias na mesma rede não disputem a quota por IP.
+
+`GET /vitals/latest` e `/vitals` incluem `source`, `ble_session_id` e `client_reading_id`; dados existentes são preservados pela migração. O frontend mantém fila curta em memória e repete lotes com os mesmos IDs quando perde a resposta. Renovação de login, parada, desconexão e reconexão são testadas sem dispositivos reais. Consulte [o firmware](../hardware/neuroband/README.md) para montagem e protocolo GATT.
+
+## Progresso dos jogos
 
 `GET /api/children/me/game-progress` retorna `{ "progress": { "platform": { ... } } }`.
 `PUT /api/children/me/game-progress/:gameId` recebe `{ "progress": { ... } }` e retorna `{ "ok": true }`.

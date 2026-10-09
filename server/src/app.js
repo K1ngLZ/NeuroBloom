@@ -11,6 +11,7 @@ import nodemailer from 'nodemailer';
 import crypto from 'node:crypto';
 import { databaseOptions, readConfig } from './config.js';
 import { registerGameSessions } from './game-sessions.js';
+import { registerBle } from './ble.js';
 
 const { Pool } = pg;
 export async function buildApp(options = {}) {
@@ -84,7 +85,7 @@ async function ownedChild(guardianId,childId){if(!uuidSchema.safeParse(childId).
 app.get('/api/health', async (_, reply) => {
   try {
     // Readiness requires the connection and the tables used by login and signup.
-    await pool.query('SELECT 1 FROM guardians, children, subscriptions LIMIT 0');
+    await pool.query('SELECT 1 FROM guardians, children, subscriptions, ble_sessions LIMIT 0');
     return { ok: true, service: 'NeuroBloom API', time: new Date().toISOString(), database: 'connected' };
   } catch {
     return reply.code(503).send({ ok: false, service: 'NeuroBloom API', time: new Date().toISOString(), database: 'unavailable' });
@@ -163,9 +164,15 @@ app.post('/api/children/me/refresh', { preHandler: childAuth, config: authLimit 
   return { ok: true };
 });
 app.post('/api/children/logout', async (_, reply) => reply.clearCookie('nb_kid_session', cookieOptions).send({ ok: true }));
-app.get('/api/children/:id/vitals/latest',{preHandler:guardian},async(req,reply)=>{if(!await ownedChild(req.user.sub,req.params.id))return reply.code(404).send({error:'Perfil não encontrado'});const r=await pool.query('SELECT bpm,signal_quality,measured_at,received_at FROM vitals WHERE child_id=$1 ORDER BY measured_at DESC LIMIT 1',[req.params.id]);return {reading:r.rows[0]||null,notice:'Leitura de sensor não é diagnóstico nem substitui orientação médica.'}});
-app.get('/api/children/:id/vitals',{preHandler:guardian},async(req,reply)=>{if(!await ownedChild(req.user.sub,req.params.id))return reply.code(404).send({error:'Perfil não encontrado'});const limit=z.coerce.number().int().min(1).max(500).safeParse(req.query.limit??100);if(!limit.success)return reply.code(400).send({error:'Limite inválido; use um inteiro entre 1 e 500'});const r=await pool.query('SELECT bpm,signal_quality,measured_at FROM vitals WHERE child_id=$1 ORDER BY measured_at DESC LIMIT $2',[req.params.id,limit.data]);return {readings:r.rows}});
-app.post('/api/children/:id/vitals/ble',{preHandler:guardian},async(req,reply)=>{if(!await ownedChild(req.user.sub,req.params.id))return reply.code(404).send({error:'Perfil não encontrado'});const v=z.object({bpm:z.number().int().min(25).max(250),signalQuality:z.number().int().min(0).max(100),measuredAt:z.string().datetime()}).safeParse(req.body);if(!v.success)return reply.code(400).send({error:'Leitura BLE inválida'});await pool.query('INSERT INTO vitals(child_id,bpm,signal_quality,measured_at) VALUES($1,$2,$3,$4)',[req.params.id,v.data.bpm,v.data.signalQuality,v.data.measuredAt]);return reply.code(202).send({accepted:true})});
+app.post('/api/auth/refresh', { preHandler: guardian, config: authLimit }, async (req, reply) => {
+  const result = await pool.query('SELECT id FROM guardians WHERE id=$1', [req.user.sub]);
+  if (!result.rowCount) return reply.code(401).send({ error: 'Sessão inválida ou expirada' });
+  session(reply, 'nb_session', { sub: req.user.sub, role: 'guardian' }, 1200);
+  return { ok: true };
+});
+registerBle(app, pool, guardian, ownedChild);
+app.get('/api/children/:id/vitals/latest',{preHandler:guardian},async(req,reply)=>{if(!await ownedChild(req.user.sub,req.params.id))return reply.code(404).send({error:'Perfil não encontrado'});const r=await pool.query('SELECT bpm,signal_quality,measured_at,received_at,source,ble_session_id,client_reading_id FROM vitals WHERE child_id=$1 ORDER BY measured_at DESC LIMIT 1',[req.params.id]);return {reading:r.rows[0]||null,notice:'Leitura de sensor não é diagnóstico nem substitui orientação médica.'}});
+app.get('/api/children/:id/vitals',{preHandler:guardian},async(req,reply)=>{if(!await ownedChild(req.user.sub,req.params.id))return reply.code(404).send({error:'Perfil não encontrado'});const limit=z.coerce.number().int().min(1).max(500).safeParse(req.query.limit??100);if(!limit.success)return reply.code(400).send({error:'Limite inválido; use um inteiro entre 1 e 500'});const r=await pool.query('SELECT bpm,signal_quality,measured_at,received_at,source,ble_session_id,client_reading_id FROM vitals WHERE child_id=$1 ORDER BY measured_at DESC LIMIT $2',[req.params.id,limit.data]);return {readings:r.rows}});
 app.post('/api/device/reading',async(req,reply)=>{const secret=String(req.headers['x-device-secret']||'');const v=z.object({deviceId:z.string().uuid(),bpm:z.number().int().min(25).max(250),signalQuality:z.number().int().min(0).max(100),measuredAt:z.string().datetime()}).safeParse(req.body);if(!v.success)return reply.code(400).send({error:'Leitura inválida',details:v.error.flatten()});if(secret.length<32)return reply.code(401).send({error:'Dispositivo não autenticado'});const d=await pool.query('SELECT child_id,device_key_hash FROM devices WHERE id=$1',[v.data.deviceId]);if(!d.rowCount||!crypto.timingSafeEqual(Buffer.from(hashToken(secret),'hex'),Buffer.from(d.rows[0].device_key_hash,'hex')))return reply.code(401).send({error:'Dispositivo não autenticado'});await pool.query('INSERT INTO vitals(child_id,bpm,signal_quality,measured_at) VALUES($1,$2,$3,$4)',[d.rows[0].child_id,v.data.bpm,v.data.signalQuality,v.data.measuredAt]);await pool.query('UPDATE devices SET last_seen=now() WHERE id=$1',[v.data.deviceId]);return reply.code(202).send({accepted:true})});
 app.post('/api/children/:id/device-enrollment', {preHandler:guardian},async(req,reply)=>{if(!await ownedChild(req.user.sub,req.params.id))return reply.code(404).send({error:'Perfil não encontrado'});const key=crypto.randomBytes(32).toString('hex');const r=await pool.query('INSERT INTO devices(child_id,device_key_hash) VALUES($1,$2) RETURNING id,label',[req.params.id,hashToken(key)]);return reply.code(201).send({device:r.rows[0],deviceSecret:key,warning:'Copie agora; segredo exibido uma única vez. Para produção, implemente rotação e autenticação por dispositivo.'})});
 app.post('/api/alerts/test-email',{preHandler:guardian},async(req,reply)=>{if(!mailer)return reply.code(503).send({error:'SMTP ainda não configurado no servidor'});const r=await pool.query('SELECT email,name FROM guardians WHERE id=$1',[req.user.sub]);if(!r.rowCount)return reply.code(401).send({error:'Sessão inválida ou expirada'});await mailer.sendMail({from:config.mailFrom,to:r.rows[0].email,subject:'NeuroBloom — teste de notificação',text:`Olá ${r.rows[0].name}, este é um e-mail de teste do NeuroBloom. Não é um alerta médico nem indica leitura real.`});return {sent:true}});
