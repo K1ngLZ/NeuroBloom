@@ -34,12 +34,13 @@ export class ProgressStore {
   async hydrate(){
     try{const result=await this.request('/api/children/me');this.child=result.child;this.profile=this.child.id;this.online=true;}catch{this.online=false;}
     this.readLocal();
+    let progressLoaded=false;
     if(this.online){const results=await Promise.allSettled([this.request('/api/children/me/game-progress'),this.request('/api/children/me/game-profile')]);
-      if(results[0].status==='fulfilled'){const remote=results[0].value.progress?.[this.gameId];try{if(remote&&!Array.isArray(remote)&&typeof remote==='object'&&(!this.dirty||Number(remote._savedAt||0)>Number(this.data._savedAt||0))){this.data=sanitizeProgress(remote);this.dirty=false;this.writeLocal();}}catch{this.onStatus('Cópia local preservada · progresso online inválido');}}
+      if(results[0].status==='fulfilled'){const remote=results[0].value.progress?.[this.gameId];try{if(remote&&!Array.isArray(remote)&&typeof remote==='object'&&(!this.dirty||Number(remote._savedAt||0)>Number(this.data._savedAt||0))){this.data=sanitizeProgress(remote);this.dirty=false;this.writeLocal();}progressLoaded=true;}catch{this.onStatus('Cópia local preservada · progresso online inválido');}}
       else this.onStatus('Progresso online indisponível · cópia neste aparelho');
       if(results[1].status==='fulfilled')this.nickname=results[1].value.nickname;
     }
-    this.onStatus(this.online?(this.dirty?'Sincronização pendente':'Progresso carregado'):this.child?'Salvo neste aparelho':'Entre no mundo kids para salvar online');
+    this.onStatus(this.online?(progressLoaded?(this.dirty?'Sincronização pendente':'Progresso carregado'):'Progresso online indisponível · cópia neste aparelho'):this.child?'Salvo neste aparelho':'Entre no mundo kids para salvar online');
     if(this.online&&this.dirty)this.schedule();return this;
   }
   load(){return clone(this.data);}
@@ -51,7 +52,7 @@ export class ProgressStore {
     clearTimeout(this.timer);this.timer=null;if(!this.online||!this.dirty)return;
     if(this.inFlight){await this.inFlight;if(this.dirty)return this.flush({keepalive});return;}
     const revision=this.revision,data=clone(this.data);
-    this.inFlight=(async()=>{try{await this.request(`/api/children/me/game-progress/${this.gameId}`,{method:'PUT',body:JSON.stringify({progress:data}),keepalive});if(this.revision===revision){this.dirty=false;this.writeLocal();}this.onStatus(this.dirty?'Sincronização pendente':'Progresso salvo online');}
+    this.inFlight=(async()=>{try{await this.request(`/api/children/me/game-progress/${this.gameId}`,{method:'PUT',body:JSON.stringify({progress:data}),keepalive:true});if(this.revision===revision){this.dirty=false;this.writeLocal();}this.onStatus(this.dirty?'Sincronização pendente':'Progresso salvo online');}
       catch(error){if(error.status===401)this.online=false;this.onStatus(error.status===401?'Sessão expirada · salvo neste aparelho':'Salvo neste aparelho · internet indisponível');}})();
     await this.inFlight;this.inFlight=null;if(this.dirty&&this.online&&this.revision!==revision)this.schedule();
   }
@@ -59,7 +60,7 @@ export class ProgressStore {
 
 export class GameSession {
   constructor(request,gameId,onEnd=()=>{}){this.request=request;this.gameId=gameId;this.onEnd=onEnd;this.seconds=0;this.closed=false;this.promise=null;}
-  start(){this.promise=this.request('/api/children/me/game-sessions',{method:'POST',body:JSON.stringify({gameId:this.gameId})}).then(result=>result.session).catch(()=>null);return this.promise;}
+  start(){this.promise=this.request('/api/children/me/game-sessions',{method:'POST',keepalive:true,body:JSON.stringify({gameId:this.gameId})}).then(result=>result.session).catch(()=>null);return this.promise;}
   tick(dt){if(!this.closed&&Number.isFinite(dt)&&dt>0)this.seconds=Math.min(86400,this.seconds+dt);}
   async end(metrics={},keepalive=false){if(this.closed)return;this.closed=true;const session=await this.promise;if(!session)return;
     try{await this.request(`/api/children/me/game-sessions/${session.id}`,{method:'PATCH',keepalive,body:JSON.stringify({status:metrics.status==='completed'?'completed':'ended',durationSeconds:bounded(this.seconds,86400),score:bounded(metrics.score),level:bounded(metrics.level,9999),stars:bounded(metrics.stars,3)})});this.onEnd();}catch{/* A next start closes an unfinished online session. */}

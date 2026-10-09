@@ -8,7 +8,7 @@ export function createAdventure(r, speed=false) {
   let saved;try{saved=r.save?.load?.()||{};}catch{saved={};}
   const num=(v,a,b,d=0)=>Number.isFinite(v)?clamp(v,a,b):d;
   let best=num(saved.best,0,1e9);
-  function persist(){r.save?.store?.({version:2,level,status,score,coins,elapsed,deaths,medals,checkpoint,best:Math.max(best,score)});}
+  function persist(){r.save?.store?.({version:2,level,status,score,coins,elapsed,deaths,medals,checkpoint,levelTime,takenItems:items.flatMap((item,index)=>item.taken?[index]:[]),defeatedEnemies:enemies.flatMap((enemy,index)=>!enemy.alive?[index]:[]),best:Math.max(best,score)});}
   let platforms=[],items=[],enemies=[],springs=[],checks=[],goal=0,boss=null,checkpoint=null;
   const p={x:80,y:360,vx:0,vy:0,w:28,h:40,hp:3,ground:false,coyote:0,buffer:0,inv:0,facing:1,power:0,attack:0};
   const themes=[['#112c4d','#407f98','#94d5b3','#efc66e'],['#302b54','#98698c','#efaf92','#ffe8ab'],['#102e45','#43718e','#75d5cb','#ffd787']];
@@ -109,7 +109,10 @@ export function createAdventure(r, speed=false) {
   function restart(){level=0;status='playing';score=0;coins=0;elapsed=0;t=0;cam=0;deaths=0;medals=[];build();persist();}
   function getState(){return {status,level:level+1,score,coins,elapsed,levelTime,energy,deaths,medals:[...medals],player:{...p},checkpoint:{...checkpoint},goal,boss:boss?{...boss}:null,platforms:platforms.map(q=>({...q})),enemies:enemies.map(q=>({...q})),springs:springs.map(q=>({...q})),remainingItems:items.filter(q=>!q.taken).length};}
   level=Math.floor(num(saved.level,0,2));score=num(saved.score,0,1e9);coins=Math.floor(num(saved.coins,0,1e6));elapsed=num(saved.elapsed,0,1e7);deaths=Math.floor(num(saved.deaths,0,1e6));medals=Array.isArray(saved.medals)?saved.medals.filter(x=>['Ouro','Prata','Bronze'].includes(x)).slice(0,3):[];
-  build();if(saved.status!=='won'&&saved.checkpoint&&Number.isFinite(saved.checkpoint.x)&&Number.isFinite(saved.checkpoint.y)){const q=checks.find(c=>Math.abs(c.x+12-saved.checkpoint.x)<2);if(q){checkpoint={x:q.x+12,y:q.y-p.h};for(const c of checks)c.active=c.x<=q.x;resetPlayer();}}
+  build();levelTime=num(saved.levelTime,0,1e7);
+  const restoreIndexes=(value,list,apply)=>{if(!Array.isArray(value))return;for(const index of value.slice(0,list.length))if(Number.isInteger(index)&&index>=0&&index<list.length)apply(list[index]);};
+  restoreIndexes(saved.takenItems,items,item=>{item.taken=true;});restoreIndexes(saved.defeatedEnemies,enemies,enemy=>{enemy.alive=false;});
+  if(saved.status!=='won'&&saved.checkpoint&&Number.isFinite(saved.checkpoint.x)&&Number.isFinite(saved.checkpoint.y)){const q=checks.find(c=>Math.abs(c.x+12-saved.checkpoint.x)<2);if(q){checkpoint={x:q.x+12,y:q.y-p.h};for(const c of checks)c.active=c.x<=q.x;resetPlayer();}}
   if(saved.status==='won')status='won';
   return {update,draw,getState,restart,destroy:persist};
 }

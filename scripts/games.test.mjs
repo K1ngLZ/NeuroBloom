@@ -132,3 +132,10 @@ test('sword: explore both river banks, free three crystals and rescue Luma',()=>
  const s=h.game.getState();assert.ok(s.quest.completed,JSON.stringify({player:s.player,crystals:s.quest.crystals,boss:s.boss}));assert.equal(h.completions.length,1);
  }finally{Math.random=random;}
 });
+for(const [name,create]of [['platform',platform],['speed',speed]])test(`${name}: reload retains collectibles and course medal time without rewarding again`,()=>{
+ const h=harness(create);h.step([],90);const collected=h.game.getState();assert.ok(collected.score>0);h.game.destroy();
+ assert.ok(h.saved.takenItems.length>0);assert.ok(JSON.stringify(h.saved).length<8192);
+ const restored=harness(create,h.saved);assert.equal(restored.game.getState().levelTime,collected.levelTime);assert.equal(restored.game.getState().remainingItems,collected.remainingItems);
+ restored.step([],90);assert.equal(restored.game.getState().score,collected.score);assert.equal(restored.game.getState().coins,collected.coins);
+ const malformed=harness(create,{...h.saved,takenItems:[-1,1.5,Infinity,'0',99999],defeatedEnemies:[-1,NaN,99999],levelTime:NaN});finite(malformed.game.getState());assert.equal(malformed.game.getState().levelTime,0);
+});
