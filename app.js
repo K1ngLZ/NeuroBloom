@@ -65,7 +65,7 @@ function openModal(html){
     if(input.name==='password')input.autocomplete=content.querySelector('#signupForm')?'new-password':'current-password';
     if(input.name==='email')input.autocomplete='email';
   });
-  modal.classList.add('show');modal.setAttribute('aria-hidden','false');
+  modal.classList.add('show');modal.setAttribute('aria-hidden','false');dialog.scrollTop=0;
   if(!modalInertElements.length){[...document.body.children].filter(element=>element!==modal&&element.id!=='toast'&&element.tagName!=='SCRIPT').forEach(element=>{modalInertElements.push([element,element.inert]);element.inert=true})}
   requestAnimationFrame(()=>{if(modal.classList.contains('show'))(content.querySelector('input:not([type="checkbox"]), select, textarea')||modalFocusable()[0]||dialog).focus({preventScroll:true})});
 }
