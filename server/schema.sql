@@ -28,3 +28,24 @@ CREATE TABLE IF NOT EXISTS alert_events (
  id UUID PRIMARY KEY DEFAULT gen_random_uuid(), child_id UUID NOT NULL REFERENCES children(id) ON DELETE CASCADE,
  kind TEXT NOT NULL, detail JSONB NOT NULL DEFAULT '{}', created_at TIMESTAMPTZ NOT NULL DEFAULT now(), acknowledged_at TIMESTAMPTZ
 );
+CREATE TABLE IF NOT EXISTS game_progress (
+ child_id UUID NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+ game_id TEXT NOT NULL CHECK (game_id IN ('platform','speed','ninja','sword','energy')),
+ progress JSONB NOT NULL CHECK (jsonb_typeof(progress) = 'object'),
+ updated_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+ PRIMARY KEY (child_id, game_id)
+);
+ALTER TABLE children ADD COLUMN IF NOT EXISTS game_nickname TEXT;
+CREATE TABLE IF NOT EXISTS game_sessions (
+ id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+ child_id UUID NOT NULL REFERENCES children(id) ON DELETE CASCADE,
+ game_id TEXT NOT NULL CHECK (game_id IN ('platform','speed','ninja','sword','energy')),
+ status TEXT NOT NULL DEFAULT 'started' CHECK (status IN ('started','completed','ended')),
+ started_at TIMESTAMPTZ NOT NULL DEFAULT now(), ended_at TIMESTAMPTZ,
+ duration_seconds INTEGER CHECK (duration_seconds BETWEEN 0 AND 86400),
+ score INTEGER CHECK (score BETWEEN 0 AND 100000000),
+ level INTEGER CHECK (level BETWEEN 0 AND 9999), stars SMALLINT CHECK (stars BETWEEN 0 AND 3)
+);
+CREATE INDEX IF NOT EXISTS game_sessions_child_time_idx ON game_sessions(child_id, started_at DESC);
+CREATE UNIQUE INDEX IF NOT EXISTS game_sessions_one_active_idx ON game_sessions(child_id) WHERE status='started';
+ALTER TABLE game_sessions ADD COLUMN IF NOT EXISTS nickname TEXT;

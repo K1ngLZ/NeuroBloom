@@ -96,6 +96,65 @@ test('fluxo de autenticação com PostgreSQL em schema temporário exclusivo', {
     assert.equal(me.json().child.id, childId);
     assert.equal((await app.inject({ url: '/api/family', headers: { cookie: childCookie } })).statusCode, 401);
   });
+  await t.test('progresso persiste e mantém crianças isoladas no PostgreSQL', async () => {
+    const second = (await pool.query('INSERT INTO children(guardian_id,display_name,kid_pin_hash) VALUES($1,$2,$3) RETURNING id', [guardianId,'Segunda criança','fixture'])).rows[0].id;
+    const secondCookie = `nb_kid_session=${app.jwt.sign({sub:second,guardianId,role:'child'})}`;
+    const url='/api/children/me/game-progress';
+    for (const [cookie,level] of [[childCookie,2],[secondCookie,1],[childCookie,3]]) {
+      const result=await app.inject({method:'PUT',url:`${url}/platform`,headers:{cookie},payload:{progress:{level},childId:second}});
+      assert.equal(result.statusCode,200,result.body);
+    }
+    for (const [cookie,level] of [[childCookie,3],[secondCookie,1]]) {
+      assert.equal((await app.inject({url,headers:{cookie}})).json().progress.platform.level,level);
+    }
+    assert.equal((await pool.query('SELECT count(*)::int AS count FROM game_progress')).rows[0].count,2);
+    assert.equal((await app.inject({url,headers:{cookie:guardianCookie}})).statusCode,401);
+    await pool.query('DELETE FROM children WHERE id=$1',[second]);
+    assert.equal((await pool.query('SELECT count(*)::int AS count FROM game_progress')).rows[0].count,1);
+  });
+  await t.test('apelido e partidas persistem, são privadas, idempotentes e removidas em cascata', async () => {
+    await pool.query(sql.replace('CREATE EXTENSION IF NOT EXISTS pgcrypto;', ''));
+    const base='/api/children/me';
+    const request=(method,path,payload,cookie=childCookie)=>app.inject({method,url:base+path,headers:{cookie},...(payload?{payload}:{})});
+    assert.deepEqual((await request('GET','/game-profile')).json(),{nickname:null,canEdit:true});
+    assert.equal((await request('PATCH','/game-profile',{nickname:'Lua Azul'})).statusCode,200);
+    const second=(await pool.query('INSERT INTO children(guardian_id,display_name,kid_pin_hash) VALUES($1,$2,$3) RETURNING id',[guardianId,'Other','fixture'])).rows[0].id;
+    const other=`nb_kid_session=${app.jwt.sign({sub:second,guardianId,role:'child'})}`;
+    assert.equal((await request('PATCH','/game-profile',{nickname:'Lua Azul'},other)).statusCode,200);
+    assert.equal((await request('GET','/game-sessions',null,guardianCookie)).statusCode,401);
+    assert.equal((await request('POST','/game-sessions',{gameId:'invalid'})).statusCode,400);
+    const first=(await request('POST','/game-sessions',{gameId:'platform'})).json().session;
+    assert.equal(first.status,'started');
+    assert.equal(first.nickname,'Lua Azul');
+    await request('PATCH','/game-profile',{nickname:'Sol Verde'});
+    assert.equal((await request('PATCH',`/game-sessions/${first.id}`,{status:'ended'},other)).statusCode,404);
+    const secondSession=(await request('POST','/game-sessions',{gameId:'speed'})).json().session;
+    assert.equal(secondSession.nickname,'Sol Verde');
+    assert.equal((await pool.query('SELECT nickname FROM game_sessions WHERE id=$1',[first.id])).rows[0].nickname,'Lua Azul');
+    assert.equal((await pool.query('SELECT status FROM game_sessions WHERE id=$1',[first.id])).rows[0].status,'ended');
+    const summary={status:'completed',durationSeconds:20,score:300,level:2,stars:3};
+    const finished=await request('PATCH',`/game-sessions/${secondSession.id}`,summary);
+    assert.equal(finished.statusCode,200,finished.body);
+    assert.deepEqual((await request('PATCH',`/game-sessions/${secondSession.id}`,{status:'ended',score:1})).json(),finished.json());
+    assert.deepEqual((await request('GET','/game-sessions',null,other)).json(),{sessions:[]});
+    await app.close(); app=await newApp();
+    assert.equal((await request('GET','/game-profile')).json().nickname,'Sol Verde');
+    assert.equal((await request('GET','/game-sessions')).json().sessions.length,2);
+    for(let i=0;i<14;i++) await pool.query("INSERT INTO game_sessions(child_id,game_id,status) VALUES($1,'ninja','ended')",[childId]);
+    assert.equal((await request('GET','/game-sessions')).json().sessions.length,12);
+    await request('POST','/game-sessions',{gameId:'energy'},other);
+    await pool.query('DELETE FROM children WHERE id=$1',[second]);
+    assert.equal((await pool.query('SELECT count(*)::int AS count FROM game_sessions WHERE child_id=$1',[second])).rows[0].count,0);
+    assert.equal((await request('GET','/game-profile',null,other)).statusCode,401);
+    assert.equal((await request('POST','/refresh',null,other)).statusCode,401);
+    const renewed=await request('POST','/refresh');
+    assert.equal(renewed.statusCode,200);
+    assert.match(renewed.headers['set-cookie'],/Max-Age=1800/);
+    assert.match(renewed.headers['set-cookie'],/HttpOnly/);
+    assert.equal((await request('POST','/refresh',null,guardianCookie)).statusCode,401);
+    const expired=`nb_kid_session=${app.jwt.sign({sub:childId,guardianId,role:'child'},{expiresIn:-1})}`;
+    assert.equal((await request('POST','/refresh',null,expired)).statusCode,401);
+  });
   await t.test('falha ao inserir criança desfaz responsável na mesma transação', async () => {
     await pool.query("ALTER TABLE children ADD CONSTRAINT test_rollback CHECK (display_name <> 'Rollback trigger')");
     const result = await app.inject({ method: 'POST', url: '/api/auth/signup', payload: { ...payload, email: 'rollback@example.com', childName: 'Rollback trigger' } });

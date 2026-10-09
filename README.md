@@ -13,7 +13,8 @@ Para desenvolvimento local, siga `GUIA-DE-TESTE.md`. O Bluetooth exige localhost
 - Interface responsiva com tipografia Manrope/Space Grotesk, ilustração da NeuroBand, temas claro e escuro e painéis familiar e infantil refinados.
 - Seções sobre o projeto, equipe e Colégio Módulo da Lapa. Biografias são textos de apresentação editáveis; confirmem cada contribuição com os integrantes antes de apresentar como fato.
 - Cadastro e login do responsável, sessão em cookie HTTP-only e acesso infantil por ID/PIN, integrados ao PostgreSQL.
-- Prévia de jogo Canvas original, com controles básicos de plataforma.
+- Bloom Arcade com cinco aventuras originais feitas com GPT-6 Astra: Jardins de Aurora, Rastro Solar, Espada da Aurora, Ninja do Vento e Arena Cósmica. Cada campanha tem fases ou missões, controles próprios e conclusão.
+- Nickname privado por perfil infantil, histórico das 12 partidas mais recentes (tempo ativo, fase, pontos e estrelas) e progresso persistente no PostgreSQL. Cópia local permite continuar quando a conexão falha; a sincronização exige a sessão infantil.
 - Visualização de batimentos demonstrativos.
 - Primeira integração Web Bluetooth preparada para receber pacotes da NeuroBand em Chrome/Edge usando os UUIDs definidos no firmware de bancada.
 - Navegação por teclado, formulários com foco acessível, controles de toque na prévia e preferências locais de fonte e animação.
@@ -38,8 +39,16 @@ Não inserir dados reais de crianças. PostgreSQL, autenticação, família e hi
 
 ## Próximos passos de integração
 
-1. Confirmar os personagens e arquivos originais do Beta e colocá-los em `assets/`.
+1. Ampliar os cinco mundos com novas fases, personagens originais e testes de experiência com jogadores.
 2. Finalizar a integração física: ESP32 + MAX30102, BLE GATT, leitura no navegador e persistência no PostgreSQL.
 3. Configurar SMTP para demonstração de notificação e depois implementar PagBank somente com documentação oficial, sandbox e webhook validado.
 4. Fazer testes de bancada e validação independente do sensor e dos alertas antes de qualquer uso com crianças.
 5. Para produção, revisar autenticação, consentimento, retenção/exclusão e requisitos LGPD antes de aceitar dados reais.
+
+## Desenvolvimento dos jogos
+
+Prepare os arquivos públicos com `node scripts/build-web.mjs` e abra `node scripts/dev-web.mjs` (porta 5500). A API local usa a porta 3333; em produção os jogos acessam `/api` pelo mesmo domínio do site. Jogar sem login funciona, com salvamento apenas no aparelho.
+
+Teclado: setas/WASD para mover, Espaço para salto ou voo, J para ataque, L para especial, Shift para esquiva/turbo, I para defesa, E para interação. O guia de cada jogo mostra as ações disponíveis; celular tem controles de toque. Som começa desligado, a simulação pausa ao sair da aba e respeita a preferência de reduzir movimento.
+
+Validação: `node --test scripts/build-web.test.mjs scripts/games.test.mjs scripts/runtime.test.mjs`, `npm --prefix server test` e `npm --prefix server run test:integration`. O teste `node scripts/smoke-games-online.mjs` cria dois perfis fictícios na publicação para verificar isolamento, nickname, sessões e progresso; não use dados pessoais para QA.

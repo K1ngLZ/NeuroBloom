@@ -45,3 +45,23 @@ Rotas preservadas: leituras recentes/históricas, ingestão BLE, cadastro de dis
 Ainda pendentes: verificação de e-mail/recuperação de senha, checkout PagBank/webhook (HTTP 501), autorização de jogos, protocolo ESP32 final, backups/retenção e revisão para uso com dados reais.
 
 Privacidade: dados de criança e sinais fisiológicos são sensíveis. O ambiente de demonstração deve usar dados fictícios até concluir consentimento verificável, minimização, retenção/exclusão, análise de risco e conformidade LGPD. O MAX30102 não é equipamento médico por si só.
+# Progresso dos jogos
+
+`GET /api/children/me/game-progress` retorna `{ "progress": { "platform": { ... } } }`.
+`PUT /api/children/me/game-progress/:gameId` recebe `{ "progress": { ... } }` e retorna `{ "ok": true }`.
+Os jogos aceitos são `platform`, `speed`, `ninja`, `sword` e `energy`. Os dois endpoints exigem o cookie HTTP-only `nb_kid_session`; o ID da criança sempre vem dessa sessão, nunca do corpo da requisição. O cookie do responsável não dá acesso a estas rotas.
+Cada progresso deve ser um objeto JSON de até 8192 bytes UTF-8, com no máximo seis níveis aninhados e números finitos. Escritas substituem o progresso daquele jogo e daquela criança. A migração idempotente cria `game_progress`, com exclusão em cascata ao remover a criança.
+
+### Apelido e histórico privado dos jogos
+
+Estes endpoints usam exclusivamente o cookie infantil `nb_kid_session`. IDs de criança não são aceitos no corpo. O apelido começa como `null`, nunca deriva do nome real e pode ser repetido por outras crianças; não há ranking ou busca pública.
+
+- `GET /api/children/me/game-profile`: `{ nickname: string | null, canEdit: true }`.
+- `PATCH /api/children/me/game-profile`: corpo `{ nickname }`, com 3–20 caracteres Unicode (letras/números, `_`, `-` e espaços simples). Retorna o perfil atualizado; normaliza NFC e remove espaços externos.
+- `POST /api/children/me/game-sessions`: corpo `{ gameId }` entre `platform`, `speed`, `ninja`, `sword`, `energy`. Retorna HTTP 201 `{ session }`; encerra a partida ativa anterior da criança em uma transação serializada.
+- `GET /api/children/me/game-sessions`: `{ sessions }`, com as últimas 12 partidas da própria criança, mais recentes primeiro.
+- `PATCH /api/children/me/game-sessions/:id`: corpo `{ status: "completed" | "ended", durationSeconds?, score?, level?, stars? }`. Inteiros não negativos com limites 86400, 100000000, 9999 e 3. Retorna `{ session }`; uma partida encerrada é imutável e repetir o encerramento retorna o resultado original. ID de outra criança recebe 404.
+
+Cada `session` contém `id`, `gameId`, `status`, `startedAt`, `endedAt`, `durationSeconds`, `score`, `level`, `stars`. As métricas começam como `null`; duração omitida no encerramento é calculada pelo servidor (máximo 24 horas). Mutações têm limite de 30 requisições/minuto/IP, além do limite geral. Histórico e progresso são removidos em cascata com o perfil infantil. `npm run db:migrate` aplica também essas alterações de forma idempotente a bancos existentes.
+
+Sessions also include `nickname`, a nullable snapshot taken when the session starts; editing the profile only affects future sessions. Existing sessions migrated from older versions have a null snapshot. `POST /api/children/me/refresh` renews a valid, existing child's cookie for 30 minutes (`{ ok: true }`). It cannot renew expired cookies, accepts only the child cookie, and retains the normal origin protection and authentication rate limit.

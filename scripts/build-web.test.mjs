@@ -8,7 +8,9 @@ import { buildWeb } from './build-web.mjs';
 const allowedFiles = [
   'app.js', 'games/index.html', 'index.html', 'lively.css', 'portal-premium.css',
   'premium.css', 'settings-drawer.css', 'styles.css',
-];
+  'games/runtime.js', 'games/arcade.css', 'games/modules/platform.js',
+  'games/modules/speed.js', 'games/modules/ninja.js', 'games/modules/sword.js', 'games/modules/energy.js',
+].sort();
 
 async function filesIn(directory, prefix = '') {
   const files = [];
@@ -24,7 +26,7 @@ test('publicação inclui somente assets permitidos e remove arquivos privados d
   const temporaryRoot = path.resolve(os.tmpdir());
   const fixture = await mkdtemp(path.join(temporaryRoot, 'neurobloom-web-test-'));
   try {
-    const fixtureFiles = [...allowedFiles, '.env', 'server/.env', 'server/src/server.js', 'backups/database.sql', 'public/leaked-secret.txt'];
+    const fixtureFiles = [...allowedFiles, '.env', 'server/.env', 'server/src/server.js', 'games/private.js', 'backups/database.sql', 'public/leaked-secret.txt'];
     for (const file of fixtureFiles) {
       const target = path.join(fixture, file);
       await mkdir(path.dirname(target), { recursive: true });

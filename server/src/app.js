@@ -10,6 +10,7 @@ import { z } from 'zod';
 import nodemailer from 'nodemailer';
 import crypto from 'node:crypto';
 import { databaseOptions, readConfig } from './config.js';
+import { registerGameSessions } from './game-sessions.js';
 
 const { Pool } = pg;
 export async function buildApp(options = {}) {
@@ -55,6 +56,30 @@ function authenticate(cookieName, role, invalidMessage) {
 }
 const guardian = authenticate('nb_session', 'guardian', 'Sessão inválida ou expirada');
 const childAuth = authenticate('nb_kid_session', 'child', 'Sessão infantil inválida ou expirada');
+registerGameSessions(app, pool, childAuth);
+const gameIds = new Set(['platform', 'speed', 'ninja', 'sword', 'energy']);
+function validProgress(value, depth = 0) {
+  if (depth > 6) return false;
+  if (value === null || typeof value === 'string' || typeof value === 'boolean') return true;
+  if (typeof value === 'number') return Number.isFinite(value);
+  if (typeof value !== 'object') return false;
+  return Object.entries(value).every(([key, item]) => !['__proto__', 'constructor', 'prototype'].includes(key) && validProgress(item, depth + 1));
+}
+app.get('/api/children/me/game-progress', { preHandler: childAuth }, async req => {
+  const result = await pool.query('SELECT game_id, progress FROM game_progress WHERE child_id=$1', [req.user.sub]);
+  return { progress: Object.fromEntries(result.rows.map(row => [row.game_id, row.progress])) };
+});
+app.put('/api/children/me/game-progress/:gameId', { preHandler: childAuth }, async (req, reply) => {
+  if (!gameIds.has(req.params.gameId)) return reply.code(400).send({ error: 'Jogo inválido' });
+  const progress = req.body?.progress;
+  if (!progress || typeof progress !== 'object' || Array.isArray(progress) || !validProgress(progress)) {
+    return reply.code(400).send({ error: 'Progresso inválido' });
+  }
+  const serialized = JSON.stringify(progress);
+  if (Buffer.byteLength(serialized, 'utf8') > 8192) return reply.code(413).send({ error: 'Progresso excede 8 KB' });
+  await pool.query('INSERT INTO game_progress(child_id,game_id,progress) VALUES($1,$2,$3::jsonb) ON CONFLICT(child_id,game_id) DO UPDATE SET progress=EXCLUDED.progress,updated_at=now()', [req.user.sub, req.params.gameId, serialized]);
+  return { ok: true };
+});
 async function ownedChild(guardianId,childId){if(!uuidSchema.safeParse(childId).success)return null;const r=await pool.query('SELECT id,display_name FROM children WHERE id=$1 AND guardian_id=$2',[childId,guardianId]);return r.rows[0]}
 app.get('/api/health', async (_, reply) => {
   try {
@@ -130,6 +155,12 @@ app.get('/api/children/me', { preHandler: childAuth }, async (req, reply) => {
   const result = await pool.query('SELECT id,display_name FROM children WHERE id=$1 AND guardian_id=$2', [req.user.sub, req.user.guardianId]);
   if (!result.rowCount) return reply.code(401).send({ error: 'Sessão infantil inválida ou expirada' });
   return { child: { id: result.rows[0].id, name: result.rows[0].display_name } };
+});
+app.post('/api/children/me/refresh', { preHandler: childAuth, config: authLimit }, async (req, reply) => {
+  const result = await pool.query('SELECT id FROM children WHERE id=$1 AND guardian_id=$2', [req.user.sub, req.user.guardianId]);
+  if (!result.rowCount) return reply.code(401).send({ error: 'Sessão infantil inválida ou expirada' });
+  session(reply, 'nb_kid_session', { sub: req.user.sub, guardianId: req.user.guardianId, role: 'child' }, 1800);
+  return { ok: true };
 });
 app.post('/api/children/logout', async (_, reply) => reply.clearCookie('nb_kid_session', cookieOptions).send({ ok: true }));
 app.get('/api/children/:id/vitals/latest',{preHandler:guardian},async(req,reply)=>{if(!await ownedChild(req.user.sub,req.params.id))return reply.code(404).send({error:'Perfil não encontrado'});const r=await pool.query('SELECT bpm,signal_quality,measured_at,received_at FROM vitals WHERE child_id=$1 ORDER BY measured_at DESC LIMIT 1',[req.params.id]);return {reading:r.rows[0]||null,notice:'Leitura de sensor não é diagnóstico nem substitui orientação médica.'}});
