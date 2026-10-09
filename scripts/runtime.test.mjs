@@ -20,6 +20,25 @@ test('input preserves quick taps between steps, opposing axes, and clears pause 
 test('reassigning an input source releases its previous action',()=>{
  const i=new InputState();i.set('touch:1','left',true);i.beginStep();i.endStep();i.set('touch:1','right',true);i.beginStep();assert.ok(i.released('left'));assert.ok(i.pressed('right'));assert.equal(i.axis('x'),1);
 });
+
+test('analog axes remain gradual while deliberate tilt enables directional actions',()=>{
+ const i=new InputState();i.setAnalog('joystick',.2,.1);assert.equal(i.axis('x'),.2);assert.equal(i.axis('y'),.1);assert.equal(i.down('down'),false);
+ i.setAnalog('joystick',.3,.6);i.beginStep();assert.ok(i.down('down'));assert.ok(i.pressed('down'));assert.equal(i.axis('x'),.3);i.endStep();
+ i.setAnalog('joystick',.3,.7);i.beginStep();assert.equal(i.pressed('down'),false);i.endStep();i.setAnalog('joystick',0,0);i.beginStep();assert.ok(i.released('down'));assert.equal(i.axis('y'),0);
+});
+
+test('keyboard and analog sources combine independently without releasing held actions',()=>{
+ const i=new InputState();i.set('key:D','right',true);i.set('touch:2','attack',true);i.setAnalog('joystick',.5,0);assert.equal(i.axis('x'),1);i.beginStep();i.endStep();
+ i.setAnalog('joystick',0,0);i.beginStep();assert.equal(i.axis('x'),1);assert.ok(i.down('attack'));assert.equal(i.released('right'),false);i.endStep();
+ i.setAnalog('joystick',-.4,0);assert.equal(i.axis('x'),.6);i.set('key:D','right',false);assert.equal(i.axis('x'),-.4);assert.ok(i.down('attack'));
+ i.setAnalog('joystick',0,0);assert.equal(i.axis('x'),0);assert.ok(i.down('attack'));i.clear();i.beginStep();assert.equal(i.down('attack'),false);assert.equal(i.pressed('attack'),false);assert.equal(i.released('right'),false);
+});
+
+test('analog values are bounded, finite and fully cleared with pending edges on pause',()=>{
+ const i=new InputState();i.setAnalog('stick',5,-5);assert.ok(Math.abs(Math.hypot(i.axis('x'),i.axis('y'))-1)<1e-12);
+ i.setAnalog('stick',NaN,Infinity);assert.equal(i.axis('x'),0);assert.equal(i.axis('y'),0);
+ i.setAnalog('stick',0,1);i.clear();i.beginStep();assert.equal(i.axis('y'),0);assert.equal(i.down('down'),false);assert.equal(i.pressed('down'),false);assert.equal(i.released('down'),false);
+});
 test('progress cache is scoped to authenticated child and remote clean state wins',async t=>{
  const h=setup(t,{local:{'nb-game:guest:platform':{data:{score:99}},'nb-game:child-b:platform':{data:{score:88}},'nb-game:child-a:platform':{data:{score:1,_savedAt:999}}},remote:{score:7,_savedAt:1}});await h.store.hydrate();assert.equal(h.store.key,'nb-game:child-a:platform');assert.equal(h.store.load().score,7);assert.equal(h.store.nickname,'Luz');const copy=h.store.load();copy.score=500;assert.equal(h.store.load().score,7);
 });

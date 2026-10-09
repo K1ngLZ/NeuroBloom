@@ -60,7 +60,7 @@ export function createAdventure(r, speed=false) {
     energy=clamp(energy+(boost?-32:18)*dt,0,100);
     if(speed&&r.input.down('down'))p.vx*=Math.pow(.00001,dt);
     const max=speed?(boost?760:460):(p.power>0?295:250),acc=speed?650:1700;
-    if(axis){p.vx=clamp(p.vx+axis*acc*dt,-max,max);p.facing=axis>0?1:-1;}else p.vx*=Math.pow(speed?.18:.0005,dt);
+    if(axis){const limit=max*Math.abs(axis);p.vx=clamp(p.vx+axis*acc*dt,-limit,limit);p.facing=axis>0?1:-1;}else p.vx*=Math.pow(speed?.18:.0005,dt);
     if(p.buffer>0&&p.coyote>0){p.vy=speed?-545:-580;p.buffer=0;p.coyote=0;p.ground=false;sound('jump',550);burst(p.x+14,p.y+40,'#d1ffff',5);}
     if(!held&&p.vy<-220)p.vy+=1500*dt;
     if(!speed&&(r.input.pressed('attack')||r.input.pressed('special'))&&p.attack<=0){p.attack=.35;shots.push({x:p.x+14,y:p.y+18,vx:p.facing*620,life:.65});sound('pulse',700);}

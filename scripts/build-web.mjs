@@ -7,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 export const publicAssets = [
   'index.html', 'app.js', 'styles.css', 'premium.css', 'portal-premium.css',
   'lively.css', 'settings-drawer.css',
-  'games/index.html', 'games/runtime.js', 'games/arcade.css',
+  'games/index.html', 'games/runtime.js', 'games/joystick.js', 'games/arcade.css',
   'games/modules/platform.js', 'games/modules/speed.js', 'games/modules/ninja.js',
   'games/modules/sword.js', 'games/modules/energy.js',
   'assets/mascot/welcome.mp4', 'assets/mascot/welcome-poster.jpg', 'assets/mascot/welcome.vtt',

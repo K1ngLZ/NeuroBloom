@@ -8,7 +8,7 @@ import { buildWeb } from './build-web.mjs';
 const allowedFiles = [
   'app.js', 'games/index.html', 'index.html', 'lively.css', 'portal-premium.css',
   'premium.css', 'settings-drawer.css', 'styles.css',
-  'games/runtime.js', 'games/arcade.css', 'games/modules/platform.js',
+  'games/runtime.js', 'games/joystick.js', 'games/arcade.css', 'games/modules/platform.js',
   'games/modules/speed.js', 'games/modules/ninja.js', 'games/modules/sword.js', 'games/modules/energy.js',
   'assets/mascot/welcome.mp4', 'assets/mascot/welcome-poster.jpg', 'assets/mascot/welcome.vtt',
   'ble/neuroband.js', 'ble/cloud.js',

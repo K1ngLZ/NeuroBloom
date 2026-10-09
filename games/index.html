@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
   <meta name="theme-color" content="#101c30">
   <title>Bloom Arcade · NeuroBloom</title>
-  <link rel="stylesheet" href="arcade.css?v=20261008">
+  <link rel="stylesheet" href="arcade.css?v=20261009-joystick1">
 </head>
 <body>
 <main id="arcade" class="arcade" data-game="platform">
@@ -15,16 +15,26 @@
   </header>
   <div class="mission"><span id="objective">Preparando seu mundo…</span><span id="saveStatus" role="status">Carregando progresso</span></div>
   <section class="stage" aria-label="Área do jogo">
-    <canvas id="gameCanvas" width="960" height="540" tabindex="0" aria-label="Jogo. Use as setas para mover e consulte Como jogar para ver as ações.">Seu navegador precisa oferecer suporte a Canvas para jogar.</canvas>
+    <canvas id="gameCanvas" width="960" height="540" tabindex="0" aria-label="Jogo. Arraste o joystick ou use as setas para mover. Consulte Como jogar para ver as ações.">Seu navegador precisa oferecer suporte a Canvas para jogar.</canvas>
     <div id="gameOverlay" class="game-overlay" role="dialog" aria-modal="true" aria-labelledby="overlayTitle">
       <div class="overlay-card"><span id="overlayKicker" class="eyebrow">UM NOVO MUNDO ESPERA</span><h2 id="overlayTitle">Preparando a aventura</h2><p id="overlayDescription">Carregando suas conquistas e controles.</p><div id="gameFeatures" class="features"></div><div id="controlGuide" class="control-guide"></div><div class="overlay-actions"><button id="startButton" class="primary" disabled>Carregando…</button><button id="restartButton" hidden>Recomeçar aventura</button></div></div>
     </div>
     <div id="announcement" class="announcement" role="status" hidden></div>
   </section>
   <div class="hud" aria-label="Estatísticas da partida"><div><small>FASE / NÍVEL</small><strong id="hudLevel">1</strong></div><div><small>PONTOS</small><strong id="hudScore">0</strong></div><div><small>VIDA</small><strong id="hudHealth">—</strong></div><div><small>ENERGIA</small><strong id="hudEnergy">—</strong></div><div><small>CONQUISTAS</small><strong id="hudCoins">0</strong></div></div>
-  <div class="touch-controls" aria-label="Controles por toque"><div class="dpad"><button data-action="up" aria-label="Mover para cima">↑</button><button data-action="left" aria-label="Mover para esquerda">←</button><span aria-hidden="true">✦</span><button data-action="right" aria-label="Mover para direita">→</button><button data-action="down" aria-label="Mover para baixo">↓</button></div><div id="actionControls" class="action-controls"></div></div>
-  <footer class="arcade-footer"><span id="keyboardHint">Setas ou WASD para mover · Esc para pausar</span><span id="playerTag">Explorador</span></footer>
+  <div class="touch-controls" aria-label="Controles por toque">
+    <div class="joystick-control">
+      <div id="movementJoystick" class="movement-joystick" role="group" tabindex="0" aria-label="Joystick de movimento" aria-describedby="joystickHint">
+        <span class="joystick-track" aria-hidden="true"></span>
+        <span class="joystick-direction north" aria-hidden="true">↑</span><span class="joystick-direction west" aria-hidden="true">←</span><span class="joystick-direction east" aria-hidden="true">→</span><span class="joystick-direction south" aria-hidden="true">↓</span>
+        <div id="joystickThumb" class="joystick-thumb" aria-hidden="true">✦</div>
+      </div>
+      <span id="joystickHint">Arraste para mover</span>
+    </div>
+    <div id="actionControls" class="action-controls"></div>
+  </div>
+  <footer class="arcade-footer"><span id="keyboardHint">Arraste o joystick para mover · Toque nos botões para agir</span><span id="playerTag">Explorador</span></footer>
 </main>
-<script type="module" src="runtime.js?v=20261008"></script>
+<script type="module" src="runtime.js?v=20261009-joystick1"></script>
 </body>
 </html>

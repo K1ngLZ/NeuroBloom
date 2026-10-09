@@ -1,18 +1,27 @@
+import {MovementJoystick} from './joystick.js';
+
 const GAME_IDS = ['platform', 'speed', 'sword', 'ninja', 'energy'];
 const KEYS = { ArrowLeft:'left',KeyA:'left',ArrowRight:'right',KeyD:'right',ArrowUp:'up',KeyW:'up',ArrowDown:'down',KeyS:'down',Space:'jump',KeyK:'jump',KeyJ:'attack',KeyX:'attack',KeyL:'special',KeyC:'special',ShiftLeft:'dash',ShiftRight:'dash',KeyI:'guard',KeyZ:'guard',KeyE:'interact',KeyF:'interact' };
 const LABELS = {jump:'Espaço',attack:'J',special:'L',dash:'Shift',guard:'I',interact:'E'};
 const FEATURES = {platform:['3 mundos','Salto preciso','Checkpoints','Guardião final'],speed:['Turbo e molas','Rotas e anéis','3 circuitos','Medalhas'],sword:['Mundo para explorar','Missões e cristais','XP e forja','Guardião em 2 fases'],ninja:['Salto duplo','Combo de 3 golpes','Clone do vento','3 santuários'],energy:['Voo livre','Raio carregado','Transformação','3 duelos']};
 
 export class InputState {
-  constructor(){this.sources=new Map();this.held=new Set();this.pendingPress=new Set();this.pendingRelease=new Set();this.press=new Set();this.release=new Set();}
-  set(source,action,held){const before=this.held;if(held)this.sources.set(source,action);else this.sources.delete(source);this.held=new Set(this.sources.values());for(const item of this.held)if(!before.has(item))this.pendingPress.add(item);for(const item of before)if(!this.held.has(item))this.pendingRelease.add(item);}
+  constructor(){this.sources=new Map();this.analogSources=new Map();this.held=new Set();this.pendingPress=new Set();this.pendingRelease=new Set();this.press=new Set();this.release=new Set();}
+  set(source,action,held){if(held)this.sources.set(source,action);else this.sources.delete(source);this.updateHeld();}
+  setAnalog(source,x,y){
+    x=Number.isFinite(x)?Math.max(-1,Math.min(1,x)):0;y=Number.isFinite(y)?Math.max(-1,Math.min(1,y)):0;
+    const length=Math.max(1,Math.hypot(x,y));x/=length;y/=length;
+    if(x||y)this.analogSources.set(source,{x,y});else this.analogSources.delete(source);this.updateHeld();
+  }
+  // Directional actions (braking/charging) require a deliberate tilt; axes remain gradual.
+  updateHeld(){const before=this.held;this.held=new Set(this.sources.values());for(const {x,y} of this.analogSources.values()){if(x<=-.35)this.held.add('left');if(x>=.35)this.held.add('right');if(y<=-.35)this.held.add('up');if(y>=.35)this.held.add('down');}for(const item of this.held)if(!before.has(item))this.pendingPress.add(item);for(const item of before)if(!this.held.has(item))this.pendingRelease.add(item);}
   beginStep(){this.press=this.pendingPress;this.release=this.pendingRelease;this.pendingPress=new Set();this.pendingRelease=new Set();}
   endStep(){this.press.clear();this.release.clear();}
   down(action){return this.held.has(action);}
   pressed(action){return this.press.has(action);}
   released(action){return this.release.has(action);}
-  axis(axis){return axis==='x'?Number(this.down('right'))-Number(this.down('left')):Number(this.down('down'))-Number(this.down('up'));}
-  clear(){this.sources.clear();this.held.clear();this.pendingPress.clear();this.pendingRelease.clear();this.press.clear();this.release.clear();}
+  axis(axis){const digital=new Set(this.sources.values()),coordinate=axis==='x'?'x':'y';let value=coordinate==='x'?Number(digital.has('right'))-Number(digital.has('left')):Number(digital.has('down'))-Number(digital.has('up'));for(const vector of this.analogSources.values())value+=vector[coordinate];return Math.max(-1,Math.min(1,value));}
+  clear(){this.sources.clear();this.analogSources.clear();this.held.clear();this.pendingPress.clear();this.pendingRelease.clear();this.press.clear();this.release.clear();}
 }
 
 export function sanitizeProgress(value,depth=0){
@@ -79,12 +88,12 @@ async function bootstrap(){
   let prefs={};try{prefs=JSON.parse(storage?.getItem('nb_prefs')||'{}');}catch{}
   const settings={sound:false,reducedMotion:matchMedia('(prefers-reduced-motion: reduce)').matches||prefs.motion===true};
   const audio=createAudio(settings),save=new ProgressStore(id,{storage,request,profile:params.get('profile')||'guest',onStatus:text=>$('saveStatus').textContent=text});
-  let game,metadata,active=false,started=false,destroyed=false,lastTime=0,accumulator=0,raf,session=null,metrics={},announcementTimer,refreshTimer;
+  let game,metadata,joystick,active=false,started=false,destroyed=false,lastTime=0,accumulator=0,raf,session=null,metrics={},announcementTimer,refreshTimer;
   const notify=text=>{$('announcement').textContent=text;$('announcement').hidden=false;clearTimeout(announcementTimer);announcementTimer=setTimeout(()=>$('announcement').hidden=true,4200);};
   const report=value=>{metrics={...metrics,...value};const fields={hudLevel:value.level,hudScore:value.score,hudHealth:value.health,hudEnergy:value.energy,hudCoins:value.coins};for(const [field,num] of Object.entries(fields))if(num!==undefined)$(field).textContent=Number.isFinite(num)?Math.ceil(num).toLocaleString('pt-BR'):String(num);if(value.message)$('objective').textContent=value.message;canvas.dataset.status=String(value.status||'playing');};
   const sessionEnded=()=>{if(window.parent!==window)window.parent.postMessage({type:'nb:session-ended'},location.origin);};
   const finishSession=(status='ended',value={},keepalive=false)=>session?.end({...metrics,...value,status},keepalive);
-  const clearInput=()=>{input.clear();document.querySelectorAll('[data-action]').forEach(button=>button.classList.remove('held'));};
+  const clearInput=()=>{joystick?.reset();input.clear();document.querySelectorAll('[data-action]').forEach(button=>button.classList.remove('held'));};
   const setOverlay=(kind,title,description)=>{overlay.hidden=false;$('overlayKicker').textContent=kind;$('overlayTitle').textContent=title;$('overlayDescription').textContent=description;$('pauseButton').textContent='Continuar';$ ('startButton').textContent=started?'Continuar partida':'Jogar agora';$('restartButton').hidden=!started;$('gameFeatures').hidden=started;};
   const pause=()=>{if(!game||!started||destroyed)return;active=false;accumulator=0;clearInput();if(!overlay.hidden)return;setOverlay('NO SEU RITMO','Uma pausa para respirar','Sua aventura espera por você. Continue quando quiser.');void save.flush();};
   const complete=value=>{active=false;accumulator=0;clearInput();void finishSession('completed',value);report({...value,status:'won'});setOverlay('AVENTURA CONCLUÍDA','Você fez o mundo florescer!','Suas conquistas foram salvas. Você pode explorar a aventura novamente.');$('startButton').hidden=true;$('restartButton').hidden=false;$('restartButton').textContent='Jogar novamente';$('pauseButton').disabled=true;};
@@ -95,9 +104,9 @@ async function bootstrap(){
   $('objective').textContent='Aventura pronta · '+FEATURES[id].join(' · ');
   $('overlayTitle').textContent=metadata.title;$('overlayDescription').textContent=metadata.description;
   $('gameFeatures').replaceChildren(...FEATURES[id].map(text=>{const span=document.createElement('span');span.textContent=text;return span;}));
-  const movement=document.createElement('span');movement.innerHTML='<kbd>WASD / ↑↓←→</kbd>Mover';$('controlGuide').append(movement);
+  const movement=document.createElement('span');movement.innerHTML='<kbd>Joystick / WASD / ↑↓←→</kbd>Mover';$('controlGuide').append(movement);
   for(const {action,label} of metadata.controls){const hint=document.createElement('span'),key=document.createElement('kbd');key.textContent=LABELS[action];hint.append(key,document.createTextNode(label));$('controlGuide').append(hint);const button=document.createElement('button');button.dataset.action=action;button.setAttribute('aria-label',label);const b=document.createElement('b'),small=document.createElement('small');b.textContent=LABELS[action];small.textContent=label;button.append(b,small);$('actionControls').append(button);}
-  $('keyboardHint').textContent=`WASD / setas: mover · ${metadata.controls.map(c=>`${LABELS[c.action]}: ${c.label.split(' / ')[0]}`).join(' · ')} · Esc: pausa`;
+  $('keyboardHint').textContent=`Arraste o joystick para mover e toque nos botões de ação. Teclado: WASD / setas: mover · ${metadata.controls.map(c=>`${LABELS[c.action]}: ${c.label.split(' / ')[0]}`).join(' · ')} · Esc: pausa`;
   game=module.createGame({width:960,height:540,input,settings,audio,save,report,message:notify,complete});
   game.draw(ctx);report({title:metadata.title,level:game.getState().level||game.getState().player?.level||1,score:game.getState().score||0});
   $('startButton').disabled=false;$('startButton').textContent='Jogar agora';
@@ -108,14 +117,19 @@ async function bootstrap(){
   $('helpButton').onclick=()=>{if(!game)return;active=false;accumulator=0;clearInput();setOverlay('GUIA DO EXPLORADOR',metadata.title,metadata.description);$('gameFeatures').hidden=false;$('startButton').hidden=['won','completed'].includes(game.getState().status)||game.getState().quest?.completed;$('startButton').textContent=started?'Continuar partida':'Jogar agora';};
   $('restartButton').onclick=async()=>{const button=$('restartButton');button.disabled=true;await finishSession();session=null;started=false;metrics={};game.restart();$('startButton').hidden=false;button.textContent='Recomeçar aventura';button.disabled=false;begin();};
   $('soundToggle').onclick=()=>{settings.sound=!settings.sound;$('soundToggle').textContent=settings.sound?'Som: ligado':'Som: desligado';$('soundToggle').setAttribute('aria-pressed',String(settings.sound));audio.unlock();};
+  if($('movementJoystick'))joystick=new MovementJoystick($('movementJoystick'),{input,isActive:()=>active&&!destroyed,onEngage:()=>audio.unlock(),thumb:$('joystickThumb')});
   document.querySelectorAll('[data-action]').forEach(button=>{button.addEventListener('pointerdown',event=>{if(!active)return;event.preventDefault();button.setPointerCapture(event.pointerId);input.set(`touch:${event.pointerId}`,button.dataset.action,true);button.classList.add('held');});const release=event=>{input.set(`touch:${event.pointerId}`,button.dataset.action,false);if(!input.down(button.dataset.action))button.classList.remove('held');};button.addEventListener('pointerup',release);button.addEventListener('pointercancel',release);button.addEventListener('lostpointercapture',release);button.addEventListener('contextmenu',event=>event.preventDefault());});
   window.addEventListener('keydown',event=>{if(event.code==='Escape'){if(active)pause();else if(started&&!$('startButton').hidden)begin();return;}const action=KEYS[event.code];if(action&&active){event.preventDefault();input.set(`key:${event.code}`,action,true);}});
   window.addEventListener('keyup',event=>{const action=KEYS[event.code];if(action){if(active)event.preventDefault();input.set(`key:${event.code}`,action,false);}});
   window.addEventListener('blur',pause);document.addEventListener('visibilitychange',()=>{if(document.hidden)pause();});
+  // The parent fits iframe height to the game; that resize must not pause play.
+  let viewportWidth=window.innerWidth;
+  const handleViewportResize=()=>{const width=window.innerWidth;if(width!==viewportWidth){viewportWidth=width;pause();}};
+  window.addEventListener('resize',handleViewportResize);
   window.addEventListener('message',event=>{if(event.origin!==location.origin||event.source!==window.parent)return;if(event.data?.type==='nb:pause')pause();if(event.data?.type==='nb:close')destroy();if(event.data?.type==='nb:nickname'&&typeof event.data.nickname==='string'){$('playerTag').textContent='✦ '+event.data.nickname.slice(0,40);save.nickname=event.data.nickname;}});
   window.addEventListener('online',()=>void save.flush());
   const resizeObserver=new ResizeObserver(()=>{if(window.parent!==window)window.parent.postMessage({type:'nb:resize',height:Math.ceil(arcade.getBoundingClientRect().height)},location.origin);});resizeObserver.observe(arcade);
-  function destroy(){if(destroyed)return;destroyed=true;active=false;clearInput();cancelAnimationFrame(raf);clearTimeout(announcementTimer);clearInterval(refreshTimer);resizeObserver.disconnect();game.destroy?.();void save.flush({keepalive:true});void finishSession('ended',{},true);audio.destroy();}
+  function destroy(){if(destroyed)return;destroyed=true;active=false;clearInput();joystick?.destroy();window.removeEventListener('resize',handleViewportResize);cancelAnimationFrame(raf);clearTimeout(announcementTimer);clearInterval(refreshTimer);resizeObserver.disconnect();game.destroy?.();void save.flush({keepalive:true});void finishSession('ended',{},true);audio.destroy();}
   window.addEventListener('pagehide',destroy);
   function frame(now){if(destroyed)return;const delta=Math.max(0,Math.min(.1,(now-lastTime)/1000));lastTime=now;if(active){accumulator+=delta;let steps=0;while(accumulator>=1/60&&steps<6&&active){input.beginStep();game.update(1/60);session?.tick(1/60);input.endStep();accumulator-=1/60;steps++;}}else accumulator=0;game.draw(ctx);raf=requestAnimationFrame(frame);}
   lastTime=performance.now();raf=requestAnimationFrame(frame);

@@ -5,14 +5,14 @@ import {createGame as speed} from '../games/modules/speed.js';
 import {createGame as sword} from '../games/modules/sword.js';
 
 export function harness(createGame, saved={}) {
-  let held=new Set(),previous=new Set(),stored=structuredClone(saved);
+  let held=new Set(),previous=new Set(),analog=null,stored=structuredClone(saved);
   const completions=[];
-  const input={down:a=>held.has(a),pressed:a=>held.has(a)&&!previous.has(a),released:a=>!held.has(a)&&previous.has(a),axis:a=>a==='x'?Number(held.has('right'))-Number(held.has('left')):Number(held.has('down'))-Number(held.has('up'))};
+  const input={down:a=>held.has(a),pressed:a=>held.has(a)&&!previous.has(a),released:a=>!held.has(a)&&previous.has(a),axis:a=>analog?.[a]??(a==='x'?Number(held.has('right'))-Number(held.has('left')):Number(held.has('down'))-Number(held.has('up')))};
   const gradient={addColorStop(){}};
   const ctx=new Proxy({measureText:text=>({width:String(text).length*8}),createLinearGradient:()=>gradient,createRadialGradient:()=>gradient},{get:(target,key)=>key in target?target[key]:()=>{},set:(target,key,value)=>(target[key]=value,true)});
   const runtime={width:960,height:540,input,settings:{sound:false,reducedMotion:true},audio:{play(){}},save:{load:()=>structuredClone(stored),store:value=>{stored=structuredClone(value);}},report(){},message(){},complete:value=>completions.push(value)};
   const game=createGame(runtime);
-  return {game,ctx,completions,get saved(){return stored;},step(actions=[],frames=1){held=new Set(actions);for(let i=0;i<frames;i++){game.update(1/60);previous=new Set(held);}return game.getState();}};
+  return {game,ctx,completions,get saved(){return stored;},step(actions=[],frames=1,axes=null){held=new Set(actions);analog=axes;for(let i=0;i<frames;i++){game.update(1/60);previous=new Set(held);}return game.getState();}};
 }
 function finite(value,path='state') {
   if(typeof value==='number') assert.ok(Number.isFinite(value),`${path} must be finite`);
@@ -33,6 +33,40 @@ test('speed turbo consumes energy and recharges while idle',()=>{
   const h=harness(speed);h.step([],90);const before=h.game.getState().energy;
   const boosted=h.step(['right','dash'],20);assert.ok(boosted.energy<before);assert.ok(boosted.player.vx>0);
   const recovered=h.step([],30);assert.ok(recovered.energy>boosted.energy);
+});
+
+for(const [name,create,max] of [['platform',platform,250],['speed',speed,460]]) {
+  test(`${name}: held analog input limits speed, preserves direction and release friction`,()=>{
+    const h=harness(create);h.step([],90);
+    const before=h.game.getState().player.x;
+    let s=h.step([],60,{x:.25,y:0});
+    assert.ok(s.player.x>before);
+    assert.equal(s.player.vx,max*.25);
+    assert.equal(s.player.facing,1);
+    const release=h.step([]);
+    assert.ok(release.player.vx>0&&release.player.vx<s.player.vx);
+    const right=release.player.x;
+    s=h.step([],120,{x:-.25,y:0});
+    assert.ok(s.player.x<right);
+    assert.equal(s.player.vx,-max*.25);
+    assert.equal(s.player.facing,-1);
+    finite(s);
+    const full=harness(create);full.step([],90);
+    assert.equal(full.step(['right'],45).player.vx,max);
+    const analogFull=harness(create);analogFull.step([],90);
+    assert.equal(analogFull.step([],45,{x:1,y:0}).player.vx,max);
+  });
+}
+
+test('speed: turbo also follows analog magnitude and restores energy on release',()=>{
+  const h=harness(speed);h.step([],90);
+  const s=h.step(['dash'],75,{x:.25,y:0});
+  assert.equal(s.player.vx,760*.25);
+  assert.ok(s.energy<100);
+  const idle=h.step([],30);
+  assert.ok(idle.energy>s.energy);
+  assert.ok(idle.player.vx<s.player.vx);
+  finite(idle);
 });
 test('sword saves level, guard slows movement, and dodge consumes energy',()=>{
   const h=harness(sword,{version:1,level:4,xp:35,coins:90,potions:3,upgrade:1,crystals:[true,false,false]});
