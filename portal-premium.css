@@ -116,6 +116,7 @@ body.large-type #portalRoot :is(.diag-row, .kid-game small, .portal-user small) 
 #portalRoot .portal-child-id code { color: var(--portal-accent-ink); background: var(--portal-soft); padding: 3px 5px; border-radius: 4px; overflow-wrap: anywhere; }
 #portalRoot .online-chip { padding: 8px 11px; gap: 7px; color: var(--portal-green); background: var(--portal-green-bg); font-size: 10px; font-weight: 700; }
 #portalRoot .online-chip i { width: 5px; height: 5px; background: currentColor; box-shadow: none; }
+#portalRoot #bandPill:not(.band-connected) { color: var(--portal-muted); background: var(--portal-soft); }
 #portalRoot :is(.theme-toggle, .icon-btn) { min-height: 38px; border: 1px solid var(--portal-line); border-radius: 9px; background: var(--portal-surface); color: var(--portal-muted); font-size: 11px; font-weight: 700; }
 #portalRoot .icon-btn { width: 38px; font-size: 20px; }
 #portalRoot :is(.theme-toggle, .icon-btn):hover { background: var(--portal-soft); color: var(--portal-accent-ink); }
