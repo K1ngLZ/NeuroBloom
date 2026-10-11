@@ -11,16 +11,17 @@ function actualBlock(start, end) {
 }
 // Execute production glue unchanged; dependencies represent browser/service boundaries.
 const portalCode = actualBlock('function leavePortal(', 'function updateDiagnostics(') +
-  actualBlock('function bandIsCurrent(', 'async function showPortal(');
+  actualBlock('function stopBandRemoteMonitor(', 'async function showPortal(');
 const deferred = () => { let resolve, reject; const promise = new Promise((a, b) => { resolve = a; reject = b; }); return { promise, resolve, reject }; };
 const settle = async () => { for (let i = 0; i < 16; i++) await Promise.resolve(); };
 const packet = { readingId: '00000000-0000-4000-8000-000000000001', bpm: 82, signalQuality: 95, measuredAt: '2026-10-09T12:34:56.000Z' };
 
 function harness({ request, close = () => Promise.resolve(), browser = {}, secure = true } = {}) {
-  const radios = [], clouds = [], requests = [], notices = [], help = [], trace = [], intervals = new Map(), elements = new Map();
+  const radios = [], clouds = [], monitors = [], requests = [], notices = [], help = [], trace = [], intervals = new Map(), elements = new Map();
   let inGesture = false, intervalId = 0, currentTime = Date.parse(packet.measuredAt), signins = 0;
   for (const id of ['liveBandBpm', 'liveBandQuality', 'readingState', 'bandStatus', 'bandPill', 'overviewBandState',
-    'bandConnectionHint', 'connectBand', 'bandConnect2', 'bandDisconnect2', 'bandPending', 'overviewPersist', 'portalRoot']) {
+    'bandConnectionHint', 'connectBand', 'bandConnect2', 'bandDisconnect2', 'bandPending', 'overviewPersist', 'readingTime',
+    'bandSavedConnection', 'portalRoot']) {
     elements.set('#' + id, { textContent: '', disabled: false, classList: { toggle() {} }, remove() {} });
   }
   class RadioStub {
@@ -50,10 +51,17 @@ function harness({ request, close = () => Promise.resolve(), browser = {}, secur
     setConnected(connected, device) { this.connections.push({ connected, device }); }
     stop() { trace.push('cloud-close'); this.stops++; return close(this); }
   }
+  class MonitorStub {
+    constructor(options) { this.options = options; this.starts = 0; this.stops = 0; this.refreshes = 0; monitors.push(this); }
+    start() { this.starts++; trace.push('monitor-start'); }
+    stop() { this.stops++; trace.push('monitor-stop'); }
+    refresh() { this.refreshes++; return Promise.resolve(); }
+    emit(state) { this.options.onState(state); }
+  }
   class ClockDate extends Date { static now() { return currentTime; } }
   const location = { pathname: '/responsavel' };
   const context = vm.createContext({
-    RadioStub, CloudStub, AbortController, Date: ClockDate, location,
+    RadioStub, CloudStub, MonitorStub, AbortController, Date: ClockDate, location,
     window: { isSecureContext: secure, scrollTo() {} },
     navigator: { userAgent: '', platform: '', maxTouchPoints: 0, bluetooth: { requestDevice() {} }, ...browser },
     document: { body: { classList: { remove() {} } } },
@@ -71,13 +79,14 @@ function harness({ request, close = () => Promise.resolve(), browser = {}, secur
   });
   vm.runInContext(`
     let activeChildId='child-a',bandContext=null,guardianRefreshTimer=null,guardianRefreshController=null;
-    let BandClientClass=RadioStub,CloudBridgeClass=CloudStub,portalRequest=1;
+    let BandClientClass=RadioStub,CloudBridgeClass=CloudStub,BandRemoteMonitorClass=MonitorStub,portalRequest=1;
+    let bandRemoteMonitor=null,bandRemoteState=null;
     let diagnostics={api:'online',bluetooth:'suportado',device:'desconectada',gatt:'aguardando',notifications:'aguardando',lastPacket:'—',lastPersist:'—'};
     ${portalCode}
-    function testState(){return {activeChildId,bandContext,portalRequest,guardianRefreshController,diagnostics:{...diagnostics}};}
+    function testState(){return {activeChildId,bandContext,portalRequest,guardianRefreshController,bandRemoteMonitor,bandRemoteState,diagnostics:{...diagnostics}};}
     function enterChild(id){activeChildId=id;portalRequest++;location.pathname='/responsavel';}
   `, context, { filename: 'app.js (BLE portal functions)' });
-  return { context, radios, clouds, requests, notices, help, trace, intervals, elements,
+  return { context, radios, clouds, monitors, requests, notices, help, trace, intervals, elements,
     click() { inGesture = true; try { context.connectBand(); } finally { inGesture = false; } },
     state() { return context.testState(); },
     signins() { return signins; },
@@ -262,4 +271,151 @@ test('an insecure page with requestDevice still explains the HTTPS requirement b
   assert.equal(h.help.length, 1); assert.equal(h.help[0].reason, 'insecure');
   assert.equal(h.context.bandCompatibility().available, false);
   assert.equal(h.radios.length, 0); assert.equal(h.clouds.length, 0); assert.equal(h.requests.length, 0);
+});
+
+function remoteState({ bpm = 104, signal = 91, connected = true, live = true, phase = 'online', reading = true } = {}) {
+  const sessionId = '00000000-0000-4000-8000-000000000009';
+  return {
+    phase, connected, live,
+    session: { id: sessionId, deviceName: 'NeuroBand do celular', status: connected ? 'connected' : 'stale' },
+    reading: reading ? { bpm, signal_quality: signal, measured_at: packet.measuredAt, received_at: packet.measuredAt,
+      source: 'ble', ble_session_id: sessionId } : null
+  };
+}
+
+test('a PC without Bluetooth receives live BPM and signal over the internet without creating a BLE writer', () => {
+  const h = harness({ browser: { bluetooth: undefined } });
+  assert.equal(h.context.bandCompatibility().available, false);
+  h.context.startBandRemoteMonitor('child-a');
+  const monitor = h.monitors[0];
+  assert.equal(monitor.starts, 1);
+  assert.equal(monitor.options.childId, 'child-a');
+  monitor.emit(remoteState());
+  assert.equal(h.elements.get('#liveBandBpm').textContent, 104);
+  assert.equal(h.elements.get('#liveBandQuality').textContent, 91);
+  assert.equal(h.elements.get('#readingState').textContent, 'AO VIVO');
+  assert.match(h.elements.get('#readingTime').textContent, /^Medida às /);
+  assert.match(h.elements.get('#bandStatus').textContent, /via outro aparelho/);
+  assert.match(h.elements.get('#bandPill').textContent, /Via outro aparelho/);
+  assert.match(h.elements.get('#bandConnectionHint').textContent, /não precisa de Bluetooth no computador/);
+  assert.match(h.elements.get('#bandSavedConnection').textContent, /NeuroBand do celular/);
+  assert.equal(h.elements.get('#bandDisconnect2').disabled, true, 'This PC cannot close the phone connection');
+  assert.equal(h.state().diagnostics.gatt, 'Bluetooth em outro aparelho');
+  assert.equal(h.state().bandContext, null);
+  assert.equal(h.radios.length, 0); assert.equal(h.clouds.length, 0); assert.equal(h.requests.length, 0);
+});
+
+test('the portal distinguishes a historical reading from an active remote link awaiting new measurements', () => {
+  const h = harness({ browser: { bluetooth: undefined } });
+  h.context.startBandRemoteMonitor('child-a');
+  const monitor = h.monitors[0];
+  monitor.emit(remoteState({ live: false }));
+  assert.equal(h.elements.get('#readingState').textContent, 'REGISTRO');
+  assert.match(h.elements.get('#readingTime').textContent, /^Último registro: /);
+  assert.match(h.elements.get('#overviewBandState').textContent, /aguardando leitura recente/);
+  monitor.emit(remoteState({ connected: false, live: false, reading: false }));
+  assert.equal(h.elements.get('#readingState').textContent, 'AGUARDANDO');
+  assert.equal(h.elements.get('#liveBandBpm').textContent, '—');
+  assert.equal(h.elements.get('#liveBandQuality').textContent, '—');
+  assert.equal(h.elements.get('#readingTime').textContent, 'Nenhuma leitura recebida.');
+  assert.match(h.elements.get('#bandPill').textContent, /Desconectada/);
+});
+
+test('a fresh local notification takes precedence over a delayed remote update', async () => {
+  const h = harness();
+  h.click(); await settle();
+  h.context.startBandRemoteMonitor('child-a');
+  const monitor = h.monitors[0];
+  monitor.emit(remoteState({ bpm: 149, signal: 12 }));
+  assert.equal(h.elements.get('#liveBandBpm').textContent, packet.bpm);
+  assert.equal(h.elements.get('#liveBandQuality').textContent, packet.signalQuality);
+  assert.equal(h.elements.get('#readingState').textContent, 'RECEBIDA');
+  assert.match(h.state().diagnostics.lastPacket, /^82 BPM/);
+  assert.match(h.elements.get('#bandStatus').textContent, /NeuroBand conectada/);
+  h.advance(15001);
+  monitor.emit(remoteState({ bpm: 110 }));
+  assert.equal(h.elements.get('#liveBandBpm').textContent, 110);
+  assert.equal(h.elements.get('#readingState').textContent, 'AO VIVO');
+  await h.context.disconnectBand(); h.context.stopBandRemoteMonitor();
+});
+
+test('a replaced child monitor cannot update the new profile or expire its authentication', () => {
+  const h = harness({ browser: { bluetooth: undefined } });
+  h.context.startBandRemoteMonitor('child-a');
+  const old = h.monitors[0];
+  old.emit(remoteState({ bpm: 93 }));
+  h.context.enterChild('child-b');
+  h.context.startBandRemoteMonitor('child-b');
+  const fresh = h.monitors[1];
+  assert.equal(old.stops, 1);
+  assert.equal(fresh.options.childId, 'child-b');
+  fresh.emit(remoteState({ bpm: 117, signal: 99 }));
+  old.emit(remoteState({ bpm: 249, signal: 1 }));
+  old.options.onAuthExpired();
+  assert.equal(h.state().activeChildId, 'child-b');
+  assert.equal(h.state().bandRemoteMonitor, fresh);
+  assert.equal(h.elements.get('#liveBandBpm').textContent, 117);
+  assert.equal(h.elements.get('#liveBandQuality').textContent, 99);
+  assert.equal(h.signins(), 0); assert.equal(h.notices.length, 0);
+});
+
+test('a stopped monitor and a monitor from an earlier login to the same child ignore late callbacks', () => {
+  const h = harness({ browser: { bluetooth: undefined } });
+  h.context.startBandRemoteMonitor('child-a');
+  const old = h.monitors[0];
+  h.context.stopBandRemoteMonitor();
+  old.emit(remoteState({ bpm: 249 })); old.options.onAuthExpired();
+  assert.equal(h.state().bandRemoteState, null);
+  assert.equal(h.elements.get('#liveBandBpm').textContent, '');
+  h.context.leavePortal(); h.context.enterChild('child-a');
+  h.context.startBandRemoteMonitor('child-a');
+  const fresh = h.monitors[1]; fresh.emit(remoteState({ bpm: 120 }));
+  old.emit(remoteState({ bpm: 240 })); old.options.onAuthExpired();
+  assert.equal(h.state().bandRemoteMonitor, fresh);
+  assert.equal(h.elements.get('#liveBandBpm').textContent, 120);
+  assert.equal(h.signins(), 0); assert.equal(fresh.stops, 0);
+});
+
+test('leaving the PC portal stops its reader without ending the phone BLE session', () => {
+  const h = harness({ browser: { bluetooth: undefined } });
+  h.context.startBandRemoteMonitor('child-a');
+  const monitor = h.monitors[0]; monitor.emit(remoteState());
+  h.context.leavePortal();
+  assert.equal(monitor.stops, 1);
+  assert.equal(h.state().bandRemoteState, null);
+  assert.equal(h.state().bandRemoteMonitor, null);
+  assert.equal(h.state().activeChildId, null);
+  monitor.emit(remoteState({ bpm: 249 })); monitor.options.onAuthExpired();
+  assert.equal(h.elements.get('#liveBandBpm').textContent, 104);
+  assert.equal(h.signins(), 0);
+  assert.equal(h.radios.length, 0); assert.equal(h.clouds.length, 0); assert.equal(h.requests.length, 0);
+});
+
+test('PC logout stops remote polling before logout and makes no write to the phone BLE session', async () => {
+  const h = harness({ browser: { bluetooth: undefined } });
+  h.context.startBandRemoteMonitor('child-a');
+  const monitor = h.monitors[0]; monitor.emit(remoteState());
+  const button = { disabled: false };
+  await h.context.logoutPortal(button, '/api/auth/logout', 'Saiu');
+  assert.equal(monitor.stops, 1);
+  assert.ok(h.trace.indexOf('monitor-stop') < h.trace.indexOf('api:/api/auth/logout'));
+  assert.deepEqual(h.requests.map(call => call.path), ['/api/auth/logout']);
+  assert.equal(h.requests[0].options.method, 'POST');
+  assert.equal(h.radios.length, 0); assert.equal(h.clouds.length, 0);
+  assert.equal(h.state().activeChildId, null); assert.equal(button.disabled, false);
+  monitor.emit(remoteState({ bpm: 249 })); monitor.options.onAuthExpired();
+  assert.equal(h.elements.get('#liveBandBpm').textContent, 104);
+  assert.equal(h.signins(), 0); assert.equal(h.notices.at(-1), 'Saiu');
+});
+
+test('current remote authentication expiry stops the reader and requires sign-in', () => {
+  const h = harness({ browser: { bluetooth: undefined } });
+  h.context.startBandRemoteMonitor('child-a');
+  const monitor = h.monitors[0]; monitor.options.onAuthExpired();
+  assert.equal(monitor.stops, 1);
+  assert.equal(h.state().activeChildId, null);
+  assert.equal(h.state().bandRemoteState, null);
+  assert.equal(h.signins(), 1); assert.equal(h.notices.length, 1);
+  monitor.options.onAuthExpired();
+  assert.equal(h.signins(), 1); assert.equal(h.notices.length, 1);
 });

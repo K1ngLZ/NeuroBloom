@@ -11,7 +11,7 @@ const allowedFiles = [
   'games/runtime.js', 'games/joystick.js', 'games/arcade.css', 'games/modules/platform.js',
   'games/modules/speed.js', 'games/modules/ninja.js', 'games/modules/sword.js', 'games/modules/energy.js',
   'assets/mascot/welcome.mp4', 'assets/mascot/welcome-poster.jpg', 'assets/mascot/welcome.vtt',
-  'ble/neuroband.js', 'ble/cloud.js',
+  'ble/neuroband.js', 'ble/cloud.js', 'ble/monitor.js',
 ].sort();
 
 async function filesIn(directory, prefix = '') {

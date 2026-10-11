@@ -3,10 +3,11 @@ let activeChildId=null;
 let bandContext=null;
 let guardianRefreshTimer=null;
 let guardianRefreshController=null;
-let BandClientClass=null,CloudBridgeClass=null;
+let BandClientClass=null,CloudBridgeClass=null,BandRemoteMonitorClass=null;
+let bandRemoteMonitor=null,bandRemoteState=null;
 const bandModulesReady=Promise.all([
-  import('/ble/neuroband.js?v=20261009-1'),import('/ble/cloud.js?v=20261009-2')
-]).then(([radio,cloud])=>{BandClientClass=radio.NeuroBandClient;CloudBridgeClass=cloud.BleCloudBridge;syncBandUi()}).catch(()=>{diagnostics.bluetooth='não foi possível carregar';updateDiagnostics()});
+  import('/ble/neuroband.js?v=20261009-1'),import('/ble/cloud.js?v=20261009-2'),import('/ble/monitor.js?v=20261011-1')
+]).then(([radio,cloud,remote])=>{BandClientClass=radio.NeuroBandClient;CloudBridgeClass=cloud.BleCloudBridge;BandRemoteMonitorClass=remote.BandRemoteMonitor;syncBandUi()}).catch(()=>{diagnostics.bluetooth='não foi possível carregar';updateDiagnostics()});
 let portalRequest=0;
 let diagnostics={api:'verificando',bluetooth:'verificando',device:'desconectada',gatt:'aguardando',notifications:'aguardando',lastPacket:'—',lastPersist:'—'};
 const $=s=>document.querySelector(s);
@@ -122,13 +123,13 @@ function setPortalRoute(view,historyMode='push'){
 function leavePortal(historyMode='push'){
   closeVisualSettings(false);
   $('#portalRoot')?.kidCleanup?.();
-  portalRequest+=1;activeChildId=null;closeModal();stopGuardianRefresh();void disconnectBand();
+  portalRequest+=1;activeChildId=null;closeModal();stopGuardianRefresh();stopBandRemoteMonitor();void disconnectBand();
   document.body.classList.remove('portal-mode');$('#portalRoot')?.remove();setPortalRoute(null,historyMode);window.scrollTo(0,0);
 }
 async function logoutPortal(button,path,message){
   if(button.disabled)return;
   button.disabled=true;
-  try{if(path==='/api/auth/logout'){stopGuardianRefresh();await disconnectBand()}await api(path,{method:'POST'});leavePortal('replace');notify(message)}
+  try{if(path==='/api/auth/logout'){stopGuardianRefresh();stopBandRemoteMonitor();await disconnectBand()}await api(path,{method:'POST'});leavePortal('replace');notify(message)}
   catch(err){notify('Não foi possível encerrar a sessão. '+err.message)}
   finally{button.disabled=false}
 }
@@ -205,6 +206,49 @@ function showBandCompatibilityHelp(compatibility){
   </div>`);
   $('#bandCompatibilityDone').onclick=closeModal;
 }
+function showBandPhoneGuide(){
+  const address='https://neuro-bloom-swart.vercel.app/responsavel';
+  openModal(`<div class="band-tutorial">
+    <span class="band-tutorial-kicker">CONEXÃO PELO CELULAR</span>
+    <h2>Use a pulseira no PC sem Bluetooth</h2>
+    <p>O celular conecta à NeuroBand por Bluetooth. O computador acompanha as leituras pela internet.</p>
+    <div class="band-phone-flow" aria-label="Pulseira para celular por Bluetooth, celular para computador pela internet"><span>NeuroBand</span><b>→ Bluetooth →</b><span>Celular</span><b>→ Internet →</b><span>Computador</span></div>
+    <ol class="band-tutorial-steps">
+      <li><div><strong>Abra o painel no celular</strong><span>No Android, use Chrome. No iPhone/iPad, use <a href="https://apps.apple.com/us/app/bluefy-web-ble-browser/id1492822055" target="_blank" rel="noopener noreferrer">Bluefy</a>; Chrome e Safari no iPhone não oferecem Web Bluetooth.</span><code class="band-tutorial-url">${address}</code><button class="band-tutorial-link" type="button" id="bandPhoneCopy">Copiar endereço do site</button></div></li>
+      <li><div><strong>Entre na mesma conta de responsável</strong><span>Confira se o perfil da criança é o mesmo que aparece neste computador. A conexão fica protegida pela sua conta.</span></div></li>
+      <li><div><strong>Conecte a pulseira pelo celular</strong><span>Ligue o Bluetooth, aproxime a NeuroBand, abra a aba <b>NeuroBand</b> e toque em <b>Conectar pulseira</b>. Escolha <b>NeuroBand-XXXX</b> e autorize a conexão.</span></div></li>
+      <li><div><strong>Acompanhe neste computador</strong><span>Deixe este painel aberto. Ele atualiza sozinho e indica <b>Via outro aparelho</b> quando o celular confirma a conexão. As leituras recentes aparecem com o horário em que foram medidas.</span></div></li>
+    </ol>
+    <p class="band-tutorial-note">Durante o uso, mantenha o celular desbloqueado, com o site aberto e visível, perto da pulseira. Celular e PC precisam de internet; podem usar redes diferentes. Se o celular interromper o envio, o painel deixa de indicar leitura ao vivo.</p>
+    <button class="btn primary" type="button" id="bandPhoneDone">Entendi, acompanhar no painel</button>
+  </div>`);
+  $('#bandPhoneDone').onclick=closeModal;
+  $('#bandPhoneCopy').onclick=async()=>{try{await navigator.clipboard.writeText(address);notify('Endereço copiado. Abra no celular.')}catch{notify('Selecione o endereço acima e copie para abrir no celular.')}};
+}
+function stopBandRemoteMonitor(){
+  const monitor=bandRemoteMonitor;bandRemoteMonitor=null;bandRemoteState=null;monitor?.stop();
+}
+function applyBandRemoteReading(){
+  const local=bandContext;
+  if(local?.client.state.phase==='connected'&&local.lastReadingAt&&Date.now()-local.lastReadingAt<15000)return;
+  const state=bandRemoteState;if(!state)return;
+  const reading=state.reading,bpm=$('#liveBandBpm'),quality=$('#liveBandQuality'),label=$('#readingState'),time=$('#readingTime');
+  if(bpm)bpm.textContent=reading?.bpm??'—';if(quality)quality.textContent=reading?.signal_quality??'—';
+  if(label)label.textContent=state.live?'AO VIVO':reading?'REGISTRO':'AGUARDANDO';
+  if(time)time.textContent=reading?(state.live?'Medida às ':'Último registro: ')+new Date(reading.measured_at).toLocaleString('pt-BR'):'Nenhuma leitura recebida.';
+  diagnostics.lastPacket=state.live?reading.bpm+' BPM · índice '+reading.signal_quality+' · pela internet':'sem leitura recente pela internet';
+  if(!local)diagnostics.lastPersist=reading?'Recebida pelo servidor em '+new Date(reading.received_at).toLocaleString('pt-BR'):'Nenhuma leitura registrada';
+}
+function startBandRemoteMonitor(childId){
+  if(!BandRemoteMonitorClass||activeChildId!==childId||location.pathname!=='/responsavel')return;
+  stopBandRemoteMonitor();const request=portalRequest;let monitor;
+  const current=()=>bandRemoteMonitor===monitor&&activeChildId===childId&&portalRequest===request&&location.pathname==='/responsavel';
+  monitor=new BandRemoteMonitorClass({api,childId,onState:state=>{
+    if(!current())return;bandRemoteState=state;applyBandRemoteReading();syncBandUi();
+    const saved=$('#bandSavedConnection');if(saved)saved.textContent=state.phase==='offline'?'Sem confirmação do servidor. Verifique a internet.':state.session?'Última conexão registrada: '+state.session.deviceName+'.':'Nenhuma conexão registrada ainda.';
+  },onAuthExpired:()=>{if(!current())return;leavePortal('replace');signinForm();notify('Sua sessão expirou. Entre novamente para acompanhar a pulseira.')}});
+  bandRemoteMonitor=monitor;monitor.start();
+}
 function bandIsCurrent(context){return bandContext===context&&activeChildId===context.childId&&!context.disposed}
 function bandCompatibility(){
   if(!window.isSecureContext)return {available:false,reason:'insecure',hint:'A conexão Bluetooth exige HTTPS. Abra o NeuroBloom pelo endereço seguro do site.'};
@@ -231,30 +275,30 @@ function syncBandUi(){
   const context=bandContext,state=context?.client.state||{phase:'disconnected',notifications:false};
   const compatibility=bandCompatibility();
   const labels={selecting:'Escolha sua NeuroBand na lista do navegador.',connecting:'Conectando ao Bluetooth da pulseira…',discovering:'Verificando a NeuroBand…',subscribing:'Ativando o recebimento de leituras…',connected:'NeuroBand conectada. Aguardando uma leitura válida.',reconnecting:'Conexão interrompida. Aproxime a pulseira; tentando reconectar…',disconnected:'Ligue a pulseira e toque em Conectar.',error:state.error||'Não foi possível conectar. Aproxime a pulseira e tente novamente.'};
-  const connected=state.phase==='connected';
+  const connected=state.phase==='connected',remote=bandRemoteState,remoteConnected=!connected&&remote?.phase==='online'&&remote.connected;
   diagnostics.bluetooth=compatibility.available?'suportado':compatibility.reason==='ios'?'indisponível neste navegador no iPhone/iPad':compatibility.reason==='insecure'?'requer HTTPS':'não suportado';
-  diagnostics.device=connected?(state.deviceName||'conectada'):state.phase==='reconnecting'?'reconectando':state.phase==='error'?'falhou':'desconectada';
-  diagnostics.gatt=connected?'conectado':state.phase==='discovering'?'verificando serviço':state.phase==='connecting'?'conectando':'aguardando';
-  diagnostics.notifications=state.notifications?'ativas':'aguardando';
-  const status=$('#bandStatus');if(status)status.textContent=connected?'● '+(state.deviceName||'NeuroBand')+' conectada':state.phase==='reconnecting'?'○ Reconectando NeuroBand':'○ NeuroBand desconectada';
-  const pill=$('#bandPill');if(pill){pill.textContent=connected?'● Conectada':state.phase==='reconnecting'?'↻ Reconectando':'○ Desconectada';pill.classList.toggle('band-connected',connected)}
+  diagnostics.device=connected?(state.deviceName||'conectada'):state.phase==='reconnecting'?'reconectando':state.phase==='error'?'falhou':remoteConnected?'conectada em outro aparelho':'desconectada';
+  diagnostics.gatt=connected?'conectado':state.phase==='discovering'?'verificando serviço':state.phase==='connecting'?'conectando':remoteConnected?'Bluetooth em outro aparelho':'aguardando';
+  diagnostics.notifications=state.notifications?'ativas':remoteConnected?'leituras pela internet':'aguardando';
+  const status=$('#bandStatus');if(status)status.textContent=connected?'● '+(state.deviceName||'NeuroBand')+' conectada':state.phase==='reconnecting'?'○ Reconectando NeuroBand':remoteConnected?'● NeuroBand via outro aparelho':'○ NeuroBand desconectada';
+  const pill=$('#bandPill');if(pill){pill.textContent=connected?'● Conectada':state.phase==='reconnecting'?'↻ Reconectando':remoteConnected?'● Via outro aparelho':'○ Desconectada';pill.classList.toggle('band-connected',connected||remoteConnected)}
   const overview=$('#overviewBandState');
   const recent=connected&&context?.lastReadingAt&&Date.now()-context.lastReadingAt<15000;
-  if(overview)overview.textContent=recent?'Recebendo leituras da pulseira nesta aba.':labels[state.phase]||labels.disconnected;
-  const hint=$('#bandConnectionHint');if(hint)hint.textContent=compatibility.available?labels[state.phase]||labels.disconnected:compatibility.hint;
+  if(overview)overview.textContent=recent?'Recebendo leituras da pulseira nesta aba.':remoteConnected?(remote.live?'Recebendo leituras pela internet de outro aparelho.':'Conexão ativa em outro aparelho; aguardando leitura recente.'):!connected&&remote?.phase==='offline'?'Sem confirmação do servidor. Verifique a internet.':labels[state.phase]||labels.disconnected;
+  const hint=$('#bandConnectionHint');if(hint)hint.textContent=remoteConnected?'A NeuroBand está conectada em outro aparelho. Este painel acompanha pela internet e não precisa de Bluetooth no computador.':(compatibility.available?labels[state.phase]||labels.disconnected:compatibility.hint)+(!connected?' Se este computador não tem Bluetooth, use Conectar pelo celular.':'');
   const busy=['selecting','connecting','discovering','subscribing'].includes(state.phase);
   ['connectBand','bandConnect2'].forEach(id=>{const button=$('#'+id);if(button){button.disabled=busy||connected||!BandClientClass||!CloudBridgeClass;button.textContent=busy?'Conectando…':id==='bandConnect2'?'Conectar pulseira':'Conectar'}});
   const disconnect=$('#bandDisconnect2');if(disconnect)disconnect.disabled=!context;
   const pending=$('#bandPending');if(pending)pending.textContent=context?.cloudState?.pending?context.cloudState.pending+' leitura(s) aguardando envio.':'As leituras recebidas são salvas na sua conta.';
-  const persistence=$('#overviewPersist');if(persistence)persistence.textContent=diagnostics.lastPersist==='—'?'Nenhuma leitura BLE nesta sessão.':diagnostics.lastPersist;
+  const persistence=$('#overviewPersist');if(persistence)persistence.textContent=diagnostics.lastPersist==='—'?'Nenhuma leitura registrada.':diagnostics.lastPersist;
   updateDiagnostics();
 }
 function receiveBandReading(context,reading){
   if(!bandIsCurrent(context))return;
   context.lastReadingAt=Date.now();
   diagnostics.lastPacket=reading.bpm+' BPM · índice '+reading.signalQuality;
-  const bpm=$('#liveBandBpm'),quality=$('#liveBandQuality'),state=$('#readingState');
-  if(bpm)bpm.textContent=reading.bpm;if(quality)quality.textContent=reading.signalQuality;if(state)state.textContent='RECEBIDA';
+  const bpm=$('#liveBandBpm'),quality=$('#liveBandQuality'),state=$('#readingState'),time=$('#readingTime');
+  if(bpm)bpm.textContent=reading.bpm;if(quality)quality.textContent=reading.signalQuality;if(state)state.textContent='RECEBIDA';if(time)time.textContent='Recebida neste aparelho às '+new Date(reading.measuredAt).toLocaleTimeString('pt-BR');
   context.cloud.add(reading);syncBandUi();
 }
 function expireBandReading(context){
@@ -263,7 +307,7 @@ function expireBandReading(context){
     context.lastReadingAt=0;
     const bpm=$('#liveBandBpm'),quality=$('#liveBandQuality'),state=$('#readingState');
     if(bpm)bpm.textContent='—';if(quality)quality.textContent='—';if(state)state.textContent='AGUARDANDO';
-    diagnostics.lastPacket='sem leitura recente';syncBandUi();
+    diagnostics.lastPacket='sem leitura recente';applyBandRemoteReading();syncBandUi();
   }
 }
 function connectBand(){
@@ -301,11 +345,13 @@ async function disconnectBand(){
   const context=bandContext;bandContext=null;
   if(context){context.disposed=true;clearInterval(context.watchdog);context.client.disconnect();}
   diagnostics.device='desconectada';diagnostics.gatt='aguardando';diagnostics.notifications='aguardando';syncBandUi();
+  applyBandRemoteReading();
   if(context)await context.cloud.stop();
 }
 async function showPortal(guardian,child,{historyMode='push'}={}){
   closeVisualSettings(false);
   child=normalizeChild(child);
+  stopBandRemoteMonitor();
   if(!guardian?.id||!child)throw new Error('Não foi possível carregar o perfil da família.');
   guardian={...guardian,name:String(guardian.name||'Responsável')};
   const request=++portalRequest;
@@ -321,9 +367,8 @@ async function renderGuardianPortal(guardian,child,shouldRender=()=>true){
   if(!shouldRender())return;
   document.body.classList.add('portal-mode');
   let root=$('#portalRoot');if(!root){root=document.createElement('div');root.id='portalRoot';document.body.appendChild(root)}
-  root.innerHTML='<div class="portal-app"><aside class="portal-sidebar"><div class="portal-brand"><span>✿</span> Neuro<span>Bloom</span></div><div class="portal-user"><div class="portal-avatar">'+escapeHtml((guardian.name||'N').slice(0,1).toUpperCase())+'</div><div><strong>'+escapeHtml(guardian.name)+'</strong><small>Responsável</small></div></div><nav class="portal-tabs"><button class="active" data-tab="overview">⌂ <span>Visão geral</span></button><button data-tab="history">◷ <span>Histórico</span></button><button data-tab="band">◉ <span>NeuroBand</span></button><button data-tab="family">♧ <span>Família</span></button><button data-tab="settings">⚙ <span>Configurações</span></button></nav><button class="portal-exit" id="portalExit">← Voltar ao site</button></aside><main class="portal-main"><header class="portal-header"><div><span class="portal-kicker">NEUROBLOOM / RESPONSÁVEL</span><h1>Olá, '+escapeHtml(guardian.name.split(' ')[0])+' <span>✦</span></h1><p>Acompanhe a experiência de '+escapeHtml(child.name)+' em um só lugar.</p><div class="portal-child-id">ID da criança <code>'+escapeHtml(child.id)+'</code></div></div><div class="portal-header-actions"><span class="online-chip"><i></i> Conta conectada</span><button class="theme-toggle" id="themeToggle" title="Alternar tema">◐ Tema</button><button class="icon-btn" id="portalLogout" title="Sair">↪</button></div></header><section class="portal-content"><div class="portal-tab-panel active" data-panel="overview"><div class="portal-grid"><article class="metric-card metric-main"><div class="metric-label">LEITURA MAIS RECENTE <span id="readingState">'+(reading?.reading?'REGISTRO':'AGUARDANDO')+'</span></div><div class="metric-value"><strong id="liveBandBpm">'+(reading?.reading?.bpm??'—')+'</strong><small>BPM</small></div><div class="metric-footer"><span id="bandStatus">○ NeuroBand desconectada</span><button class="btn primary small" id="connectBand">Conectar</button><button class="btn small" type="button" id="bandTutorialOverview" aria-haspopup="dialog">Como conectar</button></div></article><article class="metric-card"><div class="metric-label">QUALIDADE DO SINAL</div><div class="metric-value compact"><strong id="liveBandQuality">—</strong><small>/ 100</small></div><p>Índice de contato óptico enviado pela pulseira.</p></article><article class="metric-card"><div class="metric-label">PERFIL INFANTIL</div><div class="child-mini"><div class="child-orb">✿</div><div><strong>'+escapeHtml(child.name)+'</strong><span>Perfil acompanhado</span></div></div><p>Perfil infantil vinculado à sua conta.</p></article></div><div class="portal-section-head"><div><span class="portal-kicker">ATIVIDADE</span><h2>Visão rápida</h2></div><button class="btn small" id="refreshReading">Atualizar</button></div><div class="insight-grid"><article class="insight-card"><span class="insight-icon">⌁</span><div><strong>Status da NeuroBand</strong><p id="overviewBandState">Aguardando conexão com o dispositivo.</p></div></article><article class="insight-card"><span class="insight-icon mint">✦</span><div><strong>Última persistência</strong><p id="overviewPersist">Nenhuma leitura BLE nesta sessão.</p></div></article><article class="insight-card"><span class="insight-icon peach">♡</span><div><strong>Uso das leituras</strong><p>Não use leituras para decisões clínicas ou emergências.</p></div></article></div></div><div class="portal-tab-panel" data-panel="history"><div class="portal-section-head"><div><span class="portal-kicker">DADOS</span><h2>Histórico de leituras</h2></div><button class="btn small" id="historyBtn">Atualizar histórico</button></div><div id="historyBox" class="portal-history"><div class="empty-state">Carregue o histórico para visualizar as leituras.</div></div></div><div class="portal-tab-panel" data-panel="band"><div class="portal-section-head"><div><span class="portal-kicker">DISPOSITIVO</span><h2>NeuroBand</h2></div><span class="online-chip" id="bandPill"><i></i> Desconectada</span></div><div class="band-layout"><article class="band-visual"><div class="band-glow"></div><div class="band-ring">◉</div><strong>NeuroBand</strong><span>Conexão Bluetooth</span><p id="bandConnectionHint" class="form-note" role="status">Ligue a pulseira e toque em Conectar.</p><div class="band-actions"><div class="band-connect-row"><button class="btn primary" id="bandConnect2">Conectar pulseira</button><button class="btn small" type="button" id="bandTutorial2" aria-haspopup="dialog">Como conectar</button></div><button class="btn small" id="bandDisconnect2">Desconectar</button></div></article><article class="diagnostic-card"><div class="diag-head"><strong>Status da conexão</strong><button class="btn small" id="diagRefresh">Verificar conexão</button></div><div id="diagnosticsBox" class="diagnostics-box"></div><p id="bandPending" class="form-note" role="status">As leituras recebidas são salvas na sua conta.</p><p id="bandSavedConnection" class="form-note"></p><p class="form-note">1. Ligue a NeuroBand perto do aparelho. 2. Ative o Bluetooth. 3. Toque em Conectar pulseira e selecione NeuroBand na lista. Mantenha esta aba aberta para enviar as leituras.</p></article></div></div><div class="portal-tab-panel" data-panel="family"><div class="portal-section-head"><div><span class="portal-kicker">FAMÍLIA</span><h2>Perfil acompanhado</h2></div></div><div class="family-card"><div class="family-avatar">✿</div><div><strong>'+escapeHtml(child.name)+'</strong><p>Perfil infantil vinculado a '+escapeHtml(guardian.name)+'.</p></div><span class="status-badge">ATIVO</span></div></div><div class="portal-tab-panel" data-panel="settings"><div class="portal-section-head"><div><span class="portal-kicker">PREFERÊNCIAS</span><h2>Configurações</h2></div></div><div class="settings-card"><div><strong>Experiência visual</strong><p>Use o botão de engrenagem do site para modo escuro, fonte maior e redução de animações.</p></div><div><strong>Privacidade</strong><p>O acesso do responsável usa e-mail e senha. O perfil infantil tem um PIN próprio.</p></div></div></div></section></main></div>';
-  syncBandUi();bandModulesReady.then(syncBandUi);startGuardianRefresh(child.id);
-  api('/api/children/'+child.id+'/ble/status').then(result=>{if(!shouldRender())return;const saved=$('#bandSavedConnection');if(saved)saved.textContent=result.session?'Última conexão registrada: '+result.session.deviceName+'.':'Nenhuma conexão registrada ainda.'}).catch(()=>{});
+  root.innerHTML='<div class="portal-app"><aside class="portal-sidebar"><div class="portal-brand"><span>✿</span> Neuro<span>Bloom</span></div><div class="portal-user"><div class="portal-avatar">'+escapeHtml((guardian.name||'N').slice(0,1).toUpperCase())+'</div><div><strong>'+escapeHtml(guardian.name)+'</strong><small>Responsável</small></div></div><nav class="portal-tabs"><button class="active" data-tab="overview">⌂ <span>Visão geral</span></button><button data-tab="history">◷ <span>Histórico</span></button><button data-tab="band">◉ <span>NeuroBand</span></button><button data-tab="family">♧ <span>Família</span></button><button data-tab="settings">⚙ <span>Configurações</span></button></nav><button class="portal-exit" id="portalExit">← Voltar ao site</button></aside><main class="portal-main"><header class="portal-header"><div><span class="portal-kicker">NEUROBLOOM / RESPONSÁVEL</span><h1>Olá, '+escapeHtml(guardian.name.split(' ')[0])+' <span>✦</span></h1><p>Acompanhe a experiência de '+escapeHtml(child.name)+' em um só lugar.</p><div class="portal-child-id">ID da criança <code>'+escapeHtml(child.id)+'</code></div></div><div class="portal-header-actions"><span class="online-chip"><i></i> Conta conectada</span><button class="theme-toggle" id="themeToggle" title="Alternar tema">◐ Tema</button><button class="icon-btn" id="portalLogout" title="Sair">↪</button></div></header><section class="portal-content"><div class="portal-tab-panel active" data-panel="overview"><div class="portal-grid"><article class="metric-card metric-main"><div class="metric-label">LEITURA MAIS RECENTE <span id="readingState">'+(reading?.reading?'REGISTRO':'AGUARDANDO')+'</span></div><div class="metric-value"><strong id="liveBandBpm">'+(reading?.reading?.bpm??'—')+'</strong><small>BPM</small></div><p id="readingTime" class="metric-reading-time">Nenhuma leitura recebida.</p><div class="metric-footer"><span id="bandStatus">○ NeuroBand desconectada</span><button class="btn primary small" id="connectBand">Conectar</button><button class="btn small" type="button" id="bandTutorialOverview" aria-haspopup="dialog">Como conectar</button><button class="btn small" type="button" id="bandPhoneOverview" aria-haspopup="dialog">Conectar pelo celular</button></div></article><article class="metric-card"><div class="metric-label">QUALIDADE DO SINAL</div><div class="metric-value compact"><strong id="liveBandQuality">—</strong><small>/ 100</small></div><p>Índice de contato óptico enviado pela pulseira.</p></article><article class="metric-card"><div class="metric-label">PERFIL INFANTIL</div><div class="child-mini"><div class="child-orb">✿</div><div><strong>'+escapeHtml(child.name)+'</strong><span>Perfil acompanhado</span></div></div><p>Perfil infantil vinculado à sua conta.</p></article></div><div class="portal-section-head"><div><span class="portal-kicker">ATIVIDADE</span><h2>Visão rápida</h2></div><button class="btn small" id="refreshReading">Atualizar</button></div><div class="insight-grid"><article class="insight-card"><span class="insight-icon">⌁</span><div><strong>Status da NeuroBand</strong><p id="overviewBandState">Aguardando conexão com o dispositivo.</p></div></article><article class="insight-card"><span class="insight-icon mint">✦</span><div><strong>Última persistência</strong><p id="overviewPersist">Nenhuma leitura BLE nesta sessão.</p></div></article><article class="insight-card"><span class="insight-icon peach">♡</span><div><strong>Uso das leituras</strong><p>Não use leituras para decisões clínicas ou emergências.</p></div></article></div></div><div class="portal-tab-panel" data-panel="history"><div class="portal-section-head"><div><span class="portal-kicker">DADOS</span><h2>Histórico de leituras</h2></div><button class="btn small" id="historyBtn">Atualizar histórico</button></div><div id="historyBox" class="portal-history"><div class="empty-state">Carregue o histórico para visualizar as leituras.</div></div></div><div class="portal-tab-panel" data-panel="band"><div class="portal-section-head"><div><span class="portal-kicker">DISPOSITIVO</span><h2>NeuroBand</h2></div><span class="online-chip" id="bandPill"><i></i> Desconectada</span></div><div class="band-layout"><article class="band-visual"><div class="band-glow"></div><div class="band-ring">◉</div><strong>NeuroBand</strong><span>Conexão Bluetooth</span><p id="bandConnectionHint" class="form-note" role="status">Ligue a pulseira e toque em Conectar.</p><div class="band-actions"><div class="band-connect-row"><button class="btn primary" id="bandConnect2">Conectar pulseira</button><button class="btn small" type="button" id="bandTutorial2" aria-haspopup="dialog">Como conectar</button></div><button class="btn small band-phone-button" type="button" id="bandPhone2" aria-haspopup="dialog">Conectar pelo celular</button><button class="btn small" id="bandDisconnect2">Desconectar</button></div></article><article class="diagnostic-card"><div class="diag-head"><strong>Status da conexão</strong><button class="btn small" id="diagRefresh">Verificar conexão</button></div><div id="diagnosticsBox" class="diagnostics-box"></div><p id="bandPending" class="form-note" role="status">As leituras recebidas são salvas na sua conta.</p><p id="bandSavedConnection" class="form-note"></p><p class="form-note">1. Ligue a NeuroBand perto do aparelho. 2. Ative o Bluetooth. 3. Toque em Conectar pulseira e selecione NeuroBand na lista. Mantenha esta aba aberta para enviar as leituras.</p></article></div></div><div class="portal-tab-panel" data-panel="family"><div class="portal-section-head"><div><span class="portal-kicker">FAMÍLIA</span><h2>Perfil acompanhado</h2></div></div><div class="family-card"><div class="family-avatar">✿</div><div><strong>'+escapeHtml(child.name)+'</strong><p>Perfil infantil vinculado a '+escapeHtml(guardian.name)+'.</p></div><span class="status-badge">ATIVO</span></div></div><div class="portal-tab-panel" data-panel="settings"><div class="portal-section-head"><div><span class="portal-kicker">PREFERÊNCIAS</span><h2>Configurações</h2></div></div><div class="settings-card"><div><strong>Experiência visual</strong><p>Use o botão de engrenagem do site para modo escuro, fonte maior e redução de animações.</p></div><div><strong>Privacidade</strong><p>O acesso do responsável usa e-mail e senha. O perfil infantil tem um PIN próprio.</p></div></div></div></section></main></div>';
+  syncBandUi();bandModulesReady.then(()=>{if(shouldRender())startBandRemoteMonitor(child.id)});startGuardianRefresh(child.id);
   const tabs=[...root.querySelectorAll('.portal-tabs button')],panels=[...root.querySelectorAll('.portal-tab-panel')];
   const tabList=root.querySelector('.portal-tabs');tabList.setAttribute('aria-label','Navegação do painel familiar');tabList.setAttribute('role','tablist');tabList.setAttribute('aria-orientation','vertical');
   panels.forEach(panel=>{panel.id='portalPanel-'+panel.dataset.panel;panel.setAttribute('role','tabpanel');panel.setAttribute('aria-labelledby','portalTab-'+panel.dataset.panel);panel.tabIndex=0});
@@ -335,8 +380,8 @@ async function renderGuardianPortal(guardian,child,shouldRender=()=>true){
   root.querySelector('#themeToggle').onclick=toggleTheme;applyVisualPreferences();
   root.querySelector('#portalLogout').setAttribute('aria-label','Sair da conta do responsável');
   root.querySelector('#connectBand').onclick=()=>connectBand();root.querySelector('#bandConnect2').onclick=()=>connectBand();root.querySelector('#bandDisconnect2').onclick=()=>{void disconnectBand()};root.querySelector('#diagRefresh').onclick=checkApi;
-  root.querySelector('#bandTutorial2').onclick=showBandTutorial;root.querySelector('#bandTutorialOverview').onclick=showBandTutorial;
-  root.querySelector('#refreshReading').onclick=async()=>{try{const r=await api('/api/children/'+child.id+'/vitals/latest');const el=$('#liveBandBpm');if(el)el.textContent=r.reading?.bpm??'—';const state=$('#readingState');if(state)state.textContent=r.reading?'REGISTRO':'AGUARDANDO';notify(r.reading?'Leitura atualizada':'Nenhuma leitura registrada')}catch(err){notify(err.message)}};
+  root.querySelector('#bandTutorial2').onclick=showBandTutorial;root.querySelector('#bandTutorialOverview').onclick=showBandTutorial;root.querySelector('#bandPhone2').onclick=showBandPhoneGuide;root.querySelector('#bandPhoneOverview').onclick=showBandPhoneGuide;
+  root.querySelector('#refreshReading').onclick=async()=>{if(!bandRemoteMonitor)return notify('O acompanhamento está carregando.');await bandRemoteMonitor.refresh();notify(bandRemoteState?.phase==='offline'?'Não foi possível consultar a conexão. Verifique a internet.':'Painel atualizado; o acompanhamento continua automático.')};
   root.querySelector('#historyBtn').onclick=async()=>{try{const r=await api('/api/children/'+child.id+'/vitals?limit=20');const box=root.querySelector('#historyBox');box.innerHTML=r.readings.length?r.readings.map(x=>'<div class="portal-history-row"><span>'+new Date(x.measured_at).toLocaleString('pt-BR')+'</span><strong>'+x.bpm+' BPM</strong><small>'+x.signal_quality+'% sinal</small></div>').join(''):'<div class="empty-state">Nenhuma leitura registrada.</div>'}catch(err){notify(err.message)}};
   root.querySelector('#portalExit').onclick=()=>leavePortal();
   root.querySelector('#portalLogout').onclick=event=>logoutPortal(event.currentTarget,'/api/auth/logout','Sessão encerrada');
@@ -357,7 +402,7 @@ function adventurePoster(game,index){
 async function showChildPortal(child,{historyMode='push'}={}){
   closeVisualSettings(false);child=normalizeChild(child);
   if(!child)throw new Error('Não foi possível carregar o perfil infantil.');
-  const request=++portalRequest;activeChildId=null;stopGuardianRefresh();setPortalRoute('child',historyMode);await disconnectBand();
+  const request=++portalRequest;activeChildId=null;stopGuardianRefresh();stopBandRemoteMonitor();setPortalRoute('child',historyMode);await disconnectBand();
   if(request!==portalRequest||location.pathname!=='/crianca')return;
   closeModal();document.body.classList.add('portal-mode');
   let root=$('#portalRoot');if(!root){root=document.createElement('div');root.id='portalRoot';document.body.appendChild(root)}
